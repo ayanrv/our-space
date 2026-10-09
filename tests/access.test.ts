@@ -2,8 +2,6 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
 
-// Runs the real RLS policies in PostgreSQL/WASM. Auth is a small test fixture.
-// pgcrypto + Realtime are Supabase extensions and are not simulated here.
 const db = new PGlite();
 const alex = "00000000-0000-0000-0000-000000000001";
 const sam = "00000000-0000-0000-0000-000000000002";
