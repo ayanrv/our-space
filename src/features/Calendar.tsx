@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useState } from "react";
 import {
   ChevronLeft,
@@ -19,7 +20,8 @@ import {
   deleteRow,
   revealEvent,
   saveRow,
-  setReaction,
+  sendHeart,
+  respondToEvent,
 } from "../lib/repository";
 import type { EventKind, Idea, SharedEvent } from "../lib/types";
 import {
@@ -73,6 +75,10 @@ export function EventForm({
                   message: String(f.get("message")).trim(),
                   clue: String(f.get("clue") || "").trim(),
                   surprise,
+                  card_style: String(f.get("card_style")) as
+                    "cherry" | "pistachio" | "midnight",
+                  repeat_count: Number(f.get("repeat_count")),
+                  repeat_days: Number(f.get("repeat_days")),
                 }),
               "Added to your calendar",
             )
@@ -123,6 +129,30 @@ export function EventForm({
               <option value="tentative">Tentative</option>
             </select>
           </Field>
+          <Field label="Card design">
+            <select name="card_style">
+              <option value="cherry">Cherry postcard</option>
+              <option value="pistachio">Pistachio garden</option>
+              <option value="midnight">Under the stars</option>
+            </select>
+          </Field>
+          <Field label="How many times?">
+            <input
+              name="repeat_count"
+              type="number"
+              min="1"
+              max="12"
+              defaultValue="1"
+              required
+            />
+          </Field>
+          <Field label="Repeat every (when more than once)">
+            <select name="repeat_days">
+              <option value="7">Week</option>
+              <option value="14">Two weeks</option>
+              <option value="1">Day</option>
+            </select>
+          </Field>
           <Field label="Time zone" wide>
             <select name="timezone" defaultValue="Europe/Paris">
               <option>Europe/Paris</option>
@@ -170,13 +200,17 @@ export function EventForm({
         <p className="small muted">
           {surprise
             ? "Only the reserved time and clue are shared until you reveal the details."
-            : "This plan appears in your shared space. No email is sent yet."}
+            : "Dates arrive in your person’s mailbox and appear as plans on your calendar. Other plans go straight to the shared calendar."}
         </p>
         {error && (
           <p className="error" role="alert">
             {error}
           </p>
         )}
+        <p className="small muted">
+          Repeating creates separate calendar entries. You can reschedule or
+          delete each occurrence.
+        </p>
         <div className="form-actions">
           <button className="button primary" disabled={busy}>
             {busy ? "Saving…" : "Save plan"}
@@ -189,46 +223,77 @@ export function EventForm({
 export function Invitation({ event }: { event: SharedEvent }) {
   const { data, demo, userId, run, busy } = useSpace();
   const [open, setOpen] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [justSent, setJustSent] = useState(false);
   const sender =
     data.profiles.find((p) => p.id === event.created_by)?.name || "Your person";
   const recipient =
     data.profiles.find((p) => p.id !== event.created_by)?.name || "Your person";
   const secret = data.event_secrets.find((s) => s.event_id === event.id);
+  const mine = event.created_by === userId;
+  const invitation = event.kind === "date" && !mine;
   const liked = data.reactions.some(
     (r) => r.event_id === event.id && r.user_id === userId,
   );
-  const otherLiked = data.reactions.some(
+  const received = data.reactions.some(
     (r) => r.event_id === event.id && r.user_id !== userId,
   );
+  const response = data.event_responses.find(
+    (r) => r.event_id === event.id,
+  )?.response;
   return (
-    <article className="invitation">
+    <article className={"invitation card-" + (event.card_style || "cherry")}>
       <div className="invitation-address">
         <div>
-          <span className="eyebrow">A little invitation</span>
+          <span className="eyebrow">
+            {invitation ? "A little invitation" : "On our calendar"}
+          </span>
           <p>
-            For {recipient}
+            {invitation
+              ? `For ${recipient}`
+              : event.kind === "date"
+                ? `You planned this for ${recipient}`
+                : "A plan for us"}
             <br />
-            <span className="muted small">From {sender}</span>
+            <span className="small">
+              {invitation ? `From ${sender}` : niceDay(event.day)}
+            </span>
           </p>
         </div>
         <span className="stamp">
           <Flower2 size={24} />
         </span>
       </div>
-      <h3>{event.surprise ? "Keep a little time for me." : event.title}</h3>
+      <h3>
+        {secret?.title ||
+          (event.surprise ? "Keep a little time for me." : event.title)}
+      </h3>
       <p className="small">
-        {niceDay(event.day)} · {formatTime(event.at_time)}
+        {niceDay(event.day)} · {formatTime(event.at_time)} · {event.timezone}
       </p>
-      <button
-        className="button cherry"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
-      >
-        <Mail size={17} />
-        {open ? "Close invitation" : "Open invitation"}
-      </button>
+      {event.kind === "date" && (
+        <p className="response-badge">
+          {response === "accepted"
+            ? "It’s a date ♡"
+            : response === "reschedule"
+              ? "Let’s find another time"
+              : mine
+                ? "Waiting for your person’s reply"
+                : "An invitation just for you"}
+        </p>
+      )}
+      {invitation && (
+        <button
+          className="button cherry"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+        >
+          <Mail size={17} />
+          {open ? "Fold away" : "Open invitation"}
+        </button>
+      )}
       <AnimatePresence initial={false}>
-        {open && (
+        {(open || !invitation) && (
           <motion.div
             className="letter"
             initial={{ height: 0, opacity: 0 }}
@@ -236,24 +301,24 @@ export function Invitation({ event }: { event: SharedEvent }) {
             exit={{ height: 0, opacity: 0 }}
           >
             <div className="letter-inner">
-              {event.surprise && (
+              {event.surprise && !secret && (
                 <p className="small">
                   <LockKeyhole size={14} /> The details are a surprise.
                 </p>
               )}
-              <p>{event.message || "Something for us to look forward to."}</p>
-              {event.place && (
-                <p className="small muted">
-                  <MapPin size={14} />
-                  {event.place}
+              <p>
+                {secret?.message ||
+                  event.message ||
+                  "Something for us to look forward to."}
+              </p>
+              {(secret?.place || event.place) && (
+                <p className="small">
+                  <MapPin size={14} /> {secret?.place || event.place}
                 </p>
               )}
               {secret && (
                 <div className="secret-note">
-                  <span className="eyebrow">Only you can see this</span>
-                  <h4>{secret.title}</h4>
-                  <p>{secret.message}</p>
-                  <p className="small">{secret.place}</p>
+                  <span className="eyebrow">Details visible only to you</span>
                   <button
                     className="text-button"
                     disabled={busy}
@@ -264,33 +329,88 @@ export function Invitation({ event }: { event: SharedEvent }) {
                       )
                     }
                   >
-                    Reveal details to your person
+                    Reveal to your person
                   </button>
                 </div>
               )}
-              <div className="letter-bottom">
-                <span className="small">
-                  {otherLiked
-                    ? "A little heart from your person ♡"
-                    : "With love, " + sender}
-                </span>
-                <motion.button
-                  whileTap={{ scale: 0.85 }}
-                  animate={{ scale: liked ? [1, 1.18, 1] : 1 }}
-                  className={"heart-button " + (liked ? "liked" : "")}
-                  aria-label={liked ? "Remove your heart" : "Send a heart"}
-                  aria-pressed={liked}
-                  disabled={busy}
-                  onClick={() =>
-                    void run(
-                      () => setReaction(demo, event.id, userId, !liked),
-                      liked ? "Heart removed" : "A heart, sent back",
-                    )
-                  }
-                >
-                  <Heart size={20} fill={liked ? "currentColor" : "none"} />
-                </motion.button>
-              </div>
+              {invitation && (
+                <div className="invitation-actions">
+                  <button
+                    className="button"
+                    disabled={busy || response === "accepted"}
+                    onClick={() =>
+                      void run(
+                        () =>
+                          respondToEvent(demo, event.id, userId, "accepted"),
+                        "It’s a date ♡",
+                      )
+                    }
+                  >
+                    {response === "accepted" ? "Accepted ♡" : "I’d love to"}
+                  </button>
+                  <button
+                    className="text-button"
+                    disabled={busy || response === "reschedule"}
+                    onClick={() =>
+                      void run(
+                        () =>
+                          respondToEvent(demo, event.id, userId, "reschedule"),
+                        "Your person can see you’d like another time",
+                      )
+                    }
+                  >
+                    Another time?
+                  </button>
+                </div>
+              )}
+              {event.kind === "date" && (
+                <div className="letter-bottom">
+                  <span className="small" aria-live="polite">
+                    {mine
+                      ? received
+                        ? `A heart from ${recipient} ♡`
+                        : "Your person can send a heart back"
+                      : liked
+                        ? `Your heart reached ${sender} ♡`
+                        : "Send a little love back"}
+                  </span>
+                  {invitation && (
+                    <motion.button
+                      whileTap={{ scale: 0.85 }}
+                      animate={
+                        justSent
+                          ? { scale: [1, 1.25, 1], rotate: [0, -10, 8, 0] }
+                          : { scale: 1 }
+                      }
+                      onAnimationComplete={() => setJustSent(false)}
+                      className={"heart-button " + (liked ? "liked" : "")}
+                      aria-label={
+                        liked ? "Heart sent" : `Send a heart to ${sender}`
+                      }
+                      disabled={busy || sending || liked}
+                      onClick={async () => {
+                        if (sending) return;
+                        setSending(true);
+                        const sent = await run(
+                          () => sendHeart(demo, event.id, userId),
+                          "A little love, delivered ♡",
+                        );
+                        if (sent) setJustSent(true);
+                        setSending(false);
+                      }}
+                    >
+                      <Heart size={20} fill={liked ? "currentColor" : "none"} />
+                    </motion.button>
+                  )}
+                  {mine && received && (
+                    <Heart
+                      aria-label="Heart received"
+                      fill="currentColor"
+                      size={20}
+                    />
+                  )}
+                </div>
+              )}
             </div>
           </motion.div>
         )}
@@ -482,7 +602,10 @@ export function Calendar({ compact = false }: { compact?: boolean }) {
       >
         {days.map((day) => {
           const d = fromDay(day);
-          const count = data.events.filter((e) => e.day === day).length;
+          const count =
+            data.events.filter((e) => e.day === day).length +
+            data.trips.filter((t) => t.start_day <= day && t.end_day >= day)
+              .length;
           return (
             <button
               key={day}
@@ -518,6 +641,19 @@ export function Calendar({ compact = false }: { compact?: boolean }) {
         )}
       </div>
       <div className="agenda">
+        {data.trips
+          .filter((t) => t.start_day <= selected && t.end_day >= selected)
+          .map((t) => (
+            <Link className="agenda-event" key={t.id} to="/trips">
+              <span className="event-time">Trip</span>
+              <span>
+                <strong>{t.title}</strong>
+                <small>
+                  {niceDay(t.start_day)} – {niceDay(t.end_day)}
+                </small>
+              </span>
+            </Link>
+          ))}
         {events.map((event) => (
           <button
             key={event.id}
@@ -536,7 +672,10 @@ export function Calendar({ compact = false }: { compact?: boolean }) {
             <CalendarDays size={18} />
           </button>
         ))}
-        {!events.length && <Empty>No shared plans entered for this day.</Empty>}
+        {!events.length &&
+          !data.trips.some(
+            (t) => t.start_day <= selected && t.end_day >= selected,
+          ) && <Empty>No shared plans entered for this day.</Empty>}
       </div>
       {create && (
         <EventForm open onClose={() => setCreate(false)} day={selected} />

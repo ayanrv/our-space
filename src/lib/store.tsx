@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useRef } from "react";
 import type { ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { loadSnapshot } from "./repository";
@@ -36,6 +36,7 @@ export function SpaceProvider({
     refetchInterval: demo ? false : 30000,
     retry: 1,
   });
+  const running = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -64,6 +65,8 @@ export function SpaceProvider({
     return () => clearTimeout(timer);
   }, [notice]);
   async function run(fn: () => Promise<unknown>, message = "Saved") {
+    if (running.current) return false;
+    running.current = true;
     setBusy(true);
     setError("");
     try {
@@ -80,6 +83,7 @@ export function SpaceProvider({
       );
       return false;
     } finally {
+      running.current = false;
       setBusy(false);
     }
   }

@@ -1,3 +1,4 @@
+import { Reminders } from "./Reminders";
 import { useState } from "react";
 import { Copy, LogOut, Users } from "lucide-react";
 import { useSpace } from "../lib/store";
@@ -128,11 +129,8 @@ export function Settings({ onSignOut }: { onSignOut: () => void }) {
           </form>
           <p className="error">{error}</p>
           <hr />
-          <h2>Reminders</h2>
-          <p className="muted">
-            Email and WhatsApp reminders are coming later. Plans currently stay
-            inside this app.
-          </p>
+          <Reminders />
+          <hr />
           <button className="button" onClick={onSignOut}>
             <LogOut size={16} />
             {demo ? "Leave demo" : "Sign out"}

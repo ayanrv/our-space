@@ -1,13 +1,47 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Flower2 } from "lucide-react";
 import { supabase, demoEnabled } from "../lib/supabase";
 import { Field, FormError } from "../components/Form";
 import { useSpace } from "../lib/store";
+function friendlyError(error: { message: string; code?: string }) {
+  if (error.code === "over_email_send_rate_limit")
+    return "Too many emails requested. Please wait before trying again.";
+  if (error.code === "email_not_confirmed")
+    return "Confirm your email first, or choose “Resend confirmation” below.";
+  if (error.code === "invalid_credentials")
+    return "The email or password does not match. Try again or reset your password.";
+  return error.message;
+}
+function confirmationUrl() {
+  const url = new URL(window.location.origin);
+  const token = sessionStorage.getItem("our-space-invite");
+  if (token) url.searchParams.set("invite", token);
+  return url.toString();
+}
 export function Auth({ onDemo }: { onDemo: () => void }) {
-  const [signup, setSignup] = useState(false);
+  const [mode, setMode] = useState<"signin" | "signup" | "reset" | "resend">(
+    window.location.pathname === "/reset-password" ? "reset" : "signin",
+  );
   const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(
+    window.location.pathname === "/reset-password"
+      ? "Open a fresh reset link from your email. If the link expired, request a new one below."
+      : "",
+  );
   const [busy, setBusy] = useState(false);
+  const [email, setEmail] = useState("");
+  const [cooldown, setCooldown] = useState(0);
+  useEffect(() => {
+    if (!cooldown) return;
+    const t = setTimeout(() => setCooldown((n) => Math.max(0, n - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+  const labels = {
+    signin: "Welcome back.",
+    signup: "Your own little space.",
+    reset: "Let’s get you back in.",
+    resend: "Check your inbox.",
+  };
   return (
     <main className="auth-layout">
       <section className="auth-art">
@@ -26,82 +60,207 @@ export function Auth({ onDemo }: { onDemo: () => void }) {
       </section>
       <section className="auth-form">
         <span className="eyebrow">Make yourself at home</span>
-        <h2>{signup ? "Your own little space." : "Welcome back."}</h2>
+        <h2>{labels[mode]}</h2>
         {supabase ? (
           <form
             onSubmit={async (e) => {
               e.preventDefault();
+              if (busy) return;
+              const f = new FormData(e.currentTarget);
               setBusy(true);
               setError("");
               setMessage("");
-              const f = new FormData(e.currentTarget);
-              const email = String(f.get("email")).trim();
-              const password = String(f.get("password"));
-              const result = signup
-                ? await supabase!.auth.signUp({
-                    email,
+              try {
+                const password = String(f.get("password") || "");
+                if (mode === "signin") {
+                  const r = await supabase!.auth.signInWithPassword({
+                    email: email.trim(),
                     password,
-                    options: { emailRedirectTo: window.location.origin },
-                  })
-                : await supabase!.auth.signInWithPassword({ email, password });
-              setBusy(false);
-              if (result.error) setError(result.error.message);
-              else if (signup && !result.data.session)
-                setMessage(
-                  "Check your email to confirm your account, then sign in here.",
+                  });
+                  if (r.error) throw r.error;
+                } else if (mode === "signup") {
+                  const r = await supabase!.auth.signUp({
+                    email: email.trim(),
+                    password,
+                    options: { emailRedirectTo: confirmationUrl() },
+                  });
+                  if (r.error) throw r.error;
+                  if (!r.data.session) {
+                    setMessage(
+                      "Check your inbox to confirm your account. Already registered? Sign in or reset your password.",
+                    );
+                    setCooldown(60);
+                  }
+                } else if (mode === "reset") {
+                  const r = await supabase!.auth.resetPasswordForEmail(
+                    email.trim(),
+                    { redirectTo: window.location.origin + "/reset-password" },
+                  );
+                  if (r.error) throw r.error;
+                  setMessage(
+                    "If this email has an account, a reset link is on its way.",
+                  );
+                  setCooldown(60);
+                } else {
+                  const r = await supabase!.auth.resend({
+                    type: "signup",
+                    email: email.trim(),
+                    options: { emailRedirectTo: confirmationUrl() },
+                  });
+                  if (r.error) throw r.error;
+                  setMessage(
+                    "If confirmation is needed, an email is on its way. Check spam too.",
+                  );
+                  setCooldown(60);
+                }
+              } catch (e) {
+                setError(
+                  friendlyError(e as { message: string; code?: string }),
                 );
+              } finally {
+                setBusy(false);
+              }
             }}
           >
             <Field label="Email">
-              <input name="email" type="email" autoComplete="email" required />
-            </Field>
-            <Field label="Password">
               <input
-                name="password"
-                type="password"
-                minLength={8}
-                autoComplete={signup ? "new-password" : "current-password"}
+                name="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
               />
             </Field>
+            {(mode === "signin" || mode === "signup") && (
+              <Field label="Password">
+                <input
+                  name="password"
+                  type="password"
+                  minLength={mode === "signup" ? 8 : undefined}
+                  autoComplete={
+                    mode === "signup" ? "new-password" : "current-password"
+                  }
+                  required
+                />
+              </Field>
+            )}
             <FormError text={error} />
             {message && <p role="status">{message}</p>}
-            <button className="button primary" disabled={busy}>
-              {busy ? "One moment…" : signup ? "Create account" : "Sign in"}
-            </button>
             <button
-              type="button"
-              className="text-button"
-              onClick={() => {
-                setSignup(!signup);
-                setError("");
-              }}
+              className="button primary"
+              disabled={busy || (mode !== "signin" && cooldown > 0)}
             >
-              {signup
-                ? "Already have an account? Sign in"
-                : "First time? Create an account"}
+              {busy
+                ? "One moment…"
+                : mode !== "signin" && cooldown
+                  ? `Try again in ${cooldown}s`
+                  : mode === "signin"
+                    ? "Sign in"
+                    : mode === "signup"
+                      ? "Create account"
+                      : mode === "reset"
+                        ? "Send reset link"
+                        : "Resend confirmation"}
             </button>
+            <div className="auth-options">
+              {(["signin", "signup", "reset", "resend"] as const)
+                .filter((m) => m !== mode)
+                .map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    className="text-button"
+                    disabled={busy}
+                    onClick={() => {
+                      setMode(m);
+                      setError("");
+                      setMessage("");
+                    }}
+                  >
+                    {m === "signin"
+                      ? "Back to sign in"
+                      : m === "signup"
+                        ? "Create an account"
+                        : m === "reset"
+                          ? "Forgot password?"
+                          : "Resend confirmation"}
+                  </button>
+                ))}
+            </div>
           </form>
         ) : (
-          <div className="setup-message">
-            <h3>The app is ready to connect.</h3>
-            <p>
-              Add your Supabase URL and publishable key to enable accounts and
-              your shared space. The included setup guide walks through it.
-            </p>
-          </div>
-        )}
-        {demoEnabled && (
-          <button className="button demo-entry" onClick={onDemo}>
-            Explore the demo
-          </button>
-        )}
-        {demoEnabled && (
-          <p className="muted small">
-            Demo changes stay in this browser. No shared account is created.
+          <p className="setup-message">
+            Connect Supabase to use real accounts.
           </p>
         )}
+        {demoEnabled && (
+          <>
+            <button className="button demo-entry" onClick={onDemo}>
+              Explore the demo
+            </button>
+            <p className="muted small">
+              Fictional people and sample plans. Changes stay in this browser.
+            </p>
+          </>
+        )}
       </section>
+    </main>
+  );
+}
+export function ResetPassword({ onDone }: { onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  return (
+    <main className="onboarding">
+      <Flower2 size={32} />
+      <h1>A fresh start.</h1>
+      <p>Choose a new password for your account.</p>
+      <form
+        onSubmit={async (e) => {
+          e.preventDefault();
+          const f = new FormData(e.currentTarget);
+          const password = String(f.get("password"));
+          if (password !== f.get("confirm")) {
+            setError("The passwords don’t match.");
+            return;
+          }
+          setBusy(true);
+          setError("");
+          try {
+            const r = await supabase!.auth.updateUser({ password });
+            if (r.error) throw r.error;
+            onDone();
+          } catch (e) {
+            setError(friendlyError(e as { message: string }));
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <Field label="New password">
+          <input
+            name="password"
+            type="password"
+            minLength={8}
+            autoComplete="new-password"
+            required
+          />
+        </Field>
+        <Field label="Repeat password">
+          <input
+            name="confirm"
+            type="password"
+            minLength={8}
+            autoComplete="new-password"
+            required
+          />
+        </Field>
+        <FormError text={error} />
+        <button className="button primary" disabled={busy}>
+          {busy ? "Saving…" : "Save new password"}
+        </button>
+      </form>
     </main>
   );
 }
@@ -137,7 +296,7 @@ export function Onboarding() {
           <input
             name="name"
             autoComplete="given-name"
-            placeholder="Alex"
+            placeholder="Your name"
             maxLength={60}
             required
           />

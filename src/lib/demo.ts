@@ -1,7 +1,7 @@
 import { addDays, dayKey, weekDays } from "./dates";
 import type { Snapshot } from "./types";
 export const demoUser = "demo-alex";
-const storageKey = "our-space-demo-v1";
+const storageKey = "our-space-demo-v2";
 export function seedDemo(): Snapshot {
   const today = dayKey(new Date());
   const saturday =
@@ -73,6 +73,11 @@ export function seedDemo(): Snapshot {
     ],
     event_secrets: [],
     reactions: [],
+    event_responses: [],
+    meals: [],
+    trips: [],
+    trip_items: [],
+    reminder_preferences: [],
     ideas: [
       {
         id: "idea-1",
@@ -106,4 +111,8 @@ export function readDemo(): Snapshot {
 }
 export function writeDemo(data: Snapshot) {
   localStorage.setItem(storageKey, JSON.stringify(data));
+}
+
+export function resetDemo() {
+  writeDemo(seedDemo());
 }
