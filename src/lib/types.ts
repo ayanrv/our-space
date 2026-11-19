@@ -1,4 +1,9 @@
-export type Profile = { id: string; name: string };
+export type Profile = {
+  id: string;
+  name: string;
+  avatar_path?: string | null;
+  avatar_url?: string;
+};
 export type Space = { id: string; name: string };
 export type Task = {
   id: string;
@@ -9,6 +14,8 @@ export type Task = {
   private: boolean;
   due_date: string | null;
   done: boolean;
+  repeat_days?: number | null;
+  skipped?: boolean;
 };
 export type SharedList = { id: string; space_id: string; title: string };
 export type ListItem = {
@@ -31,6 +38,7 @@ export type SharedEvent = {
   message: string;
   surprise: boolean;
   created_by: string;
+  card_style?: "cherry" | "pistachio" | "midnight";
 };
 export type Secret = {
   event_id: string;
@@ -47,6 +55,56 @@ export type Idea = {
   budget: number | null;
 };
 export type Reaction = { event_id: string; user_id: string };
+export type EventResponse = {
+  event_id: string;
+  user_id: string;
+  response: "accepted" | "reschedule";
+  note?: string;
+};
+export type InboxNotification = {
+  id: string;
+  recipient_id: string;
+  actor_id: string;
+  event_id: string;
+  kind: "invitation" | "accepted" | "reschedule" | "heart" | "note";
+  body: string;
+  created_at: string;
+  read_at: string | null;
+};
+export type Meal = {
+  id: string;
+  space_id: string;
+  day: string;
+  slot: "breakfast" | "lunch" | "dinner";
+  title: string;
+  ingredients: string;
+  groceries_added: boolean;
+};
+export type Trip = {
+  id: string;
+  space_id: string;
+  title: string;
+  start_day: string;
+  end_day: string;
+  budget: number | null;
+  accommodation_url: string;
+  notes: string;
+};
+export type TripItem = {
+  id: string;
+  trip_id: string;
+  kind: "packing" | "itinerary" | "expense";
+  title: string;
+  day: string | null;
+  amount: number | null;
+  done: boolean;
+};
+export type ReminderPreference = {
+  user_id: string;
+  enabled: boolean;
+  timezone: string;
+  hour: number;
+};
 export type Snapshot = {
   space: Space | null;
   profiles: Profile[];
@@ -57,10 +115,26 @@ export type Snapshot = {
   event_secrets: Secret[];
   ideas: Idea[];
   reactions: Reaction[];
+  event_responses: EventResponse[];
+  meals: Meal[];
+  trips: Trip[];
+  trip_items: TripItem[];
+  reminder_preferences: ReminderPreference[];
+  notifications: InboxNotification[];
 };
-export type Table = "tasks" | "lists" | "list_items" | "events" | "ideas";
+export type Table =
+  | "tasks"
+  | "lists"
+  | "list_items"
+  | "events"
+  | "ideas"
+  | "meals"
+  | "trips"
+  | "trip_items";
 export type NewEvent = Omit<SharedEvent, "id" | "created_by"> & {
   clue?: string;
+  repeat_count?: number;
+  repeat_days?: number;
 };
 export const emptySnapshot: Snapshot = {
   space: null,
@@ -72,4 +146,10 @@ export const emptySnapshot: Snapshot = {
   event_secrets: [],
   ideas: [],
   reactions: [],
+  event_responses: [],
+  meals: [],
+  trips: [],
+  trip_items: [],
+  reminder_preferences: [],
+  notifications: [],
 };

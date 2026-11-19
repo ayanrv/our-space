@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useState } from "react";
 import { Plus, Map, Sparkles, Home, Trash2 } from "lucide-react";
 import { useSpace } from "../lib/store";
@@ -33,6 +34,11 @@ export function Plans() {
             Plan a date
           </button>
         </div>
+      </div>
+      <div className="feature-links">
+        <Link to="/mailbox">Your mailbox ↗</Link>
+        <Link to="/trips">Plan a getaway ↗</Link>
+        <Link to="/meals">Plan our meals ↗</Link>
       </div>
       <h2>In the diary</h2>
       <div className="plan-grid">

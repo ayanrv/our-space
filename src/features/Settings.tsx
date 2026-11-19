@@ -1,7 +1,10 @@
+import { Reminders } from "./Reminders";
 import { useState } from "react";
 import { Copy, LogOut, Users } from "lucide-react";
 import { useSpace } from "../lib/store";
 import { supabase } from "../lib/supabase";
+import { Avatar } from "../components/Avatar";
+import { updatePicture } from "../lib/profile";
 import { Field } from "../components/Form";
 export function Settings({ onSignOut }: { onSignOut: () => void }) {
   const { data, userId, demo, run, busy, notify, error } = useSpace();
@@ -22,9 +25,7 @@ export function Settings({ onSignOut }: { onSignOut: () => void }) {
           <div className="members">
             {data.profiles.map((p, i) => (
               <div key={p.id}>
-                <span className={"avatar " + (i ? "green" : "")}>
-                  {p.name.slice(0, 1)}
-                </span>
+                <Avatar profile={p} green={!!i} />
                 <span>
                   {p.name}
                   {p.id === userId ? " (you)" : ""}
@@ -91,7 +92,51 @@ export function Settings({ onSignOut }: { onSignOut: () => void }) {
           )}
         </section>
         <section className="settings-panel">
-          <h2>Your name</h2>
+          <h2>Your profile</h2>
+          <div className="profile-picture-editor">
+            {me && <Avatar profile={me} large />}
+            <div>
+              <label className="picture-picker">
+                {busy ? "Saving…" : "Choose a profile picture"}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  aria-label="Choose a profile picture"
+                  disabled={busy}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (file)
+                      await run(
+                        () =>
+                          updatePicture(demo, userId, file, me?.avatar_path),
+                        "Your picture is saved",
+                      );
+                  }}
+                />
+              </label>
+              <p className="small muted">
+                JPG, PNG or WebP, up to 5 MB. Cropped to a square.{" "}
+                {demo
+                  ? "Saved only in this browser."
+                  : "Visible to you and your person."}
+              </p>
+              {(me?.avatar_path || me?.avatar_url) && (
+                <button
+                  className="text-button"
+                  disabled={busy}
+                  onClick={() =>
+                    void run(
+                      () => updatePicture(demo, userId, null, me?.avatar_path),
+                      "Picture removed",
+                    )
+                  }
+                >
+                  Remove picture
+                </button>
+              )}
+            </div>
+          </div>
           <form
             onSubmit={async (e) => {
               e.preventDefault();
@@ -128,11 +173,8 @@ export function Settings({ onSignOut }: { onSignOut: () => void }) {
           </form>
           <p className="error">{error}</p>
           <hr />
-          <h2>Reminders</h2>
-          <p className="muted">
-            Email and WhatsApp reminders are coming later. Plans currently stay
-            inside this app.
-          </p>
+          <Reminders />
+          <hr />
           <button className="button" onClick={onSignOut}>
             <LogOut size={16} />
             {demo ? "Leave demo" : "Sign out"}

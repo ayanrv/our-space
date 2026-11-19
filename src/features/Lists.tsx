@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useState } from "react";
 import { Plus, ShoppingBasket, ListChecks, Trash2, Pencil } from "lucide-react";
 import { useSpace } from "../lib/store";
@@ -25,6 +26,9 @@ export function Lists() {
           <Plus size={18} />
           New list
         </button>
+      </div>
+      <div className="feature-links">
+        <Link to="/meals">Meals for this week ↗</Link>
       </div>
       <div className="lists-layout">
         <aside className="list-tabs" aria-label="Choose a list">

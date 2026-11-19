@@ -1,7 +1,7 @@
 import { addDays, dayKey, weekDays } from "./dates";
 import type { Snapshot } from "./types";
 export const demoUser = "demo-alex";
-const storageKey = "our-space-demo-v1";
+const storageKey = "our-space-demo-v2";
 export function seedDemo(): Snapshot {
   const today = dayKey(new Date());
   const saturday =
@@ -72,7 +72,24 @@ export function seedDemo(): Snapshot {
       },
     ],
     event_secrets: [],
+    notifications: [
+      {
+        id: "welcome-invitation",
+        recipient_id: demoUser,
+        actor_id: "demo-sam",
+        event_id: "date-1",
+        kind: "invitation",
+        body: "",
+        created_at: new Date().toISOString(),
+        read_at: null,
+      },
+    ],
     reactions: [],
+    event_responses: [],
+    meals: [],
+    trips: [],
+    trip_items: [],
+    reminder_preferences: [],
     ideas: [
       {
         id: "idea-1",
@@ -96,7 +113,7 @@ export function seedDemo(): Snapshot {
 export function readDemo(): Snapshot {
   try {
     const saved = localStorage.getItem(storageKey);
-    if (saved) return JSON.parse(saved);
+    if (saved) return { notifications: [], ...JSON.parse(saved) };
   } catch {
     /* An old or blocked browser cache is safe to ignore in demo mode. */
   }
@@ -106,4 +123,8 @@ export function readDemo(): Snapshot {
 }
 export function writeDemo(data: Snapshot) {
   localStorage.setItem(storageKey, JSON.stringify(data));
+}
+
+export function resetDemo() {
+  writeDemo(seedDemo());
 }

@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { LockKeyhole, Pencil, Plus } from "lucide-react";
+import { LockKeyhole, Pencil, Plus, Check } from "lucide-react";
 import { useSpace } from "../lib/store";
-import { saveRow, deleteRow } from "../lib/repository";
+import { saveRow, deleteRow, advanceTask } from "../lib/repository";
 import type { Task } from "../lib/types";
 import { Modal } from "../components/Modal";
 import { Field, Empty } from "../components/Form";
@@ -63,22 +63,68 @@ export function Tasks({ compact = false }: { compact?: boolean }) {
             className={"task-row " + (task.done ? "completed" : "")}
             key={task.id}
           >
-            <input
-              aria-label={"Complete " + task.title}
-              type="checkbox"
-              checked={task.done}
-              disabled={busy}
-              onChange={(e) =>
-                void run(
-                  () =>
-                    saveRow(demo, "tasks", { done: e.target.checked }, task.id),
-                  e.target.checked ? "Done. One less thing." : "Task reopened",
-                )
-              }
-            />
+            {task.repeat_days && task.due_date ? (
+              <button
+                className="icon-button"
+                disabled={busy}
+                aria-label={"Complete this occurrence of " + task.title}
+                onClick={() =>
+                  void run(
+                    () => advanceTask(demo, task.id, task.due_date!),
+                    "Done. Next occurrence is ready.",
+                  )
+                }
+              >
+                <Check size={19} />
+              </button>
+            ) : (
+              <input
+                aria-label={"Complete " + task.title}
+                type="checkbox"
+                checked={task.done}
+                disabled={busy}
+                onChange={(e) =>
+                  void run(
+                    () =>
+                      task.repeat_days && task.due_date
+                        ? advanceTask(demo, task.id, task.due_date)
+                        : saveRow(
+                            demo,
+                            "tasks",
+                            { done: e.target.checked },
+                            task.id,
+                          ),
+                    task.repeat_days
+                      ? "Done. Next occurrence is ready."
+                      : e.target.checked
+                        ? "Done. One less thing."
+                        : "Task reopened",
+                  )
+                }
+              />
+            )}
             <div className="task-copy">
               <span>{task.title}</span>
-              {task.due_date && <small>{niceDay(task.due_date)}</small>}
+              {task.due_date && (
+                <small>
+                  {niceDay(task.due_date)}
+                  {task.repeat_days ? ` · Every ${task.repeat_days} days` : ""}
+                </small>
+              )}
+              {task.repeat_days && (
+                <button
+                  className="text-button"
+                  disabled={busy}
+                  onClick={() =>
+                    void run(
+                      () => advanceTask(demo, task.id, task.due_date!, true),
+                      "Skipped this occurrence",
+                    )
+                  }
+                >
+                  Skip this time
+                </button>
+              )}
             </div>
             {task.private && (
               <LockKeyhole size={14} aria-label="Private task" />
@@ -123,7 +169,14 @@ export function Tasks({ compact = false }: { compact?: boolean }) {
                 owner_id: String(f.get("owner")) || null,
                 private: f.get("private") === "on",
                 due_date: String(f.get("day")) || null,
+                repeat_days: f.get("repeat_days")
+                  ? Number(f.get("repeat_days"))
+                  : null,
               };
+              if (values.repeat_days && !values.due_date) {
+                window.alert("Choose a due date for this routine.");
+                return;
+              }
               if (
                 await run(
                   () =>
@@ -166,7 +219,19 @@ export function Tasks({ compact = false }: { compact?: boolean }) {
                   ))}
                 </select>
               </Field>
-              <Field label="Due date (optional)">
+              <Field label="Repeat">
+                <select
+                  name="repeat_days"
+                  defaultValue={editing?.repeat_days || ""}
+                >
+                  <option value="">Does not repeat</option>
+                  <option value="1">Daily</option>
+                  <option value="7">Weekly</option>
+                  <option value="14">Every two weeks</option>
+                  <option value="30">Every 30 days</option>
+                </select>
+              </Field>
+              <Field label="Due date (required for routines)">
                 <input
                   type="date"
                   name="day"
