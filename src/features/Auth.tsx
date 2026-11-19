@@ -31,6 +31,7 @@ export function Auth({ onDemo }: { onDemo: () => void }) {
   const [busy, setBusy] = useState(false);
   const [email, setEmail] = useState("");
   const [cooldown, setCooldown] = useState(0);
+  const [needsConfirmation, setNeedsConfirmation] = useState(false);
   useEffect(() => {
     if (!cooldown) return;
     const t = setTimeout(() => setCooldown((n) => Math.max(0, n - 1)), 1000);
@@ -86,6 +87,7 @@ export function Auth({ onDemo }: { onDemo: () => void }) {
                   });
                   if (r.error) throw r.error;
                   if (!r.data.session) {
+                    setNeedsConfirmation(true);
                     setMessage(
                       "Check your inbox to confirm your account. Already registered? Sign in or reset your password.",
                     );
@@ -114,6 +116,8 @@ export function Auth({ onDemo }: { onDemo: () => void }) {
                   setCooldown(60);
                 }
               } catch (e) {
+                if ((e as { code?: string }).code === "email_not_confirmed")
+                  setNeedsConfirmation(true);
                 setError(
                   friendlyError(e as { message: string; code?: string }),
                 );
@@ -128,7 +132,10 @@ export function Auth({ onDemo }: { onDemo: () => void }) {
                 type="email"
                 autoComplete="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setNeedsConfirmation(false);
+                }}
                 required
               />
             </Field>
@@ -165,7 +172,11 @@ export function Auth({ onDemo }: { onDemo: () => void }) {
             </button>
             <div className="auth-options">
               {(["signin", "signup", "reset", "resend"] as const)
-                .filter((m) => m !== mode)
+                .filter(
+                  (m) =>
+                    m !== mode &&
+                    (m !== "resend" || (needsConfirmation && mode !== "reset")),
+                )
                 .map((m) => (
                   <button
                     key={m}

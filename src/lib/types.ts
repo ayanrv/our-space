@@ -1,4 +1,9 @@
-export type Profile = { id: string; name: string };
+export type Profile = {
+  id: string;
+  name: string;
+  avatar_path?: string | null;
+  avatar_url?: string;
+};
 export type Space = { id: string; name: string };
 export type Task = {
   id: string;

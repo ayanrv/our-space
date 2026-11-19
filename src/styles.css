@@ -1965,3 +1965,184 @@ a.agenda-event {
   color: var(--muted);
   opacity: 1;
 }
+/* Filled hearts sit on their own contrasting surface, independent of button opacity. */
+.heart-button:disabled {
+  opacity: 1;
+}
+.heart-button.heart-sending {
+  isolation: isolate;
+}
+.sent-heart-spark {
+  display: grid;
+  place-items: center;
+  left: -2px;
+  top: -8px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #fff1f5;
+  color: #c4204b;
+  border: 2px solid #d34a6d;
+  box-shadow: 0 3px 12px #44142b35;
+  animation: heart-delivery 1.5s cubic-bezier(0.2, 0.65, 0.3, 1) both;
+  z-index: 2;
+}
+:root[data-theme="night"] .sent-heart-spark {
+  background: #532438;
+  color: #ffa4c0;
+  border-color: #ffa4c0;
+  box-shadow: 0 3px 15px #0006;
+}
+@keyframes heart-delivery {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(0.75) rotate(-12deg);
+  }
+  25% {
+    opacity: 1;
+    transform: translate(-7px, -25px) scale(1.15) rotate(10deg);
+  }
+  80% {
+    opacity: 1;
+    transform: translate(5px, -74px) scale(1.05) rotate(-5deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(0, -94px) scale(0.85);
+  }
+}
+.heart-letter {
+  margin-bottom: 22px;
+  padding: 25px 20px;
+  text-align: center;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--pink);
+  color: var(--ink);
+  overflow: hidden;
+}
+.heart-letter .eyebrow {
+  color: var(--pink-ink);
+  font-size: 0.65rem;
+}
+.heart-letter h3 {
+  margin: 8px 0;
+  font-size: 1.35rem;
+}
+.heart-letter p {
+  font-size: 0.9rem;
+  margin: 7px 0 14px;
+}
+.heart-letter .text-button {
+  font-size: 0.8rem;
+  color: var(--pink-ink);
+}
+.heart-letter-scene {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 190px;
+  max-width: 280px;
+  margin: auto;
+}
+.heart-letter-center {
+  display: grid;
+  place-items: center;
+  width: 124px;
+  height: 124px;
+  border-radius: 42px;
+  background: #fff1f5;
+  color: #c4204b;
+  border: 2px solid #d34a6d;
+  box-shadow: 0 8px 0 #c4204b1c;
+  z-index: 1;
+}
+:root[data-theme="night"] .heart-letter-center {
+  background: #532438;
+  color: #ffa4c0;
+  border-color: #ffa4c0;
+  box-shadow: 0 8px 0 #0003;
+}
+.letter-heart-orbit {
+  position: absolute;
+  left: calc(50% - 10px);
+  top: calc(50% - 10px);
+  color: var(--cherry);
+  opacity: 0;
+  --angle: calc(var(--i) * 45deg);
+  animation: heart-orbit 1.9s calc(var(--i) * 65ms) ease-out both;
+}
+@keyframes heart-orbit {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--angle)) translateY(-20px)
+      rotate(calc(-1 * var(--angle))) scale(0.3);
+  }
+  25%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--angle)) translateY(-98px)
+      rotate(calc(-1 * var(--angle))) scale(1);
+  }
+}
+.avatar {
+  overflow: hidden;
+}
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.avatar.avatar-large {
+  width: 76px;
+  height: 76px;
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+.profile-picture-editor {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  margin: 22px 0 28px;
+}
+.profile-picture-editor > div {
+  min-width: 0;
+}
+.profile-picture-editor p {
+  font-size: 0.75rem;
+  line-height: 1.5;
+  max-width: 280px;
+}
+.picture-picker {
+  position: relative;
+  display: inline-block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--cherry);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.picture-picker input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  cursor: pointer;
+}
+.picture-picker:focus-within {
+  outline: 3px solid var(--cherry);
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sent-heart-spark {
+    display: none;
+  }
+  .letter-heart-orbit {
+    display: none;
+  }
+}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Heart, Mail, Check, MessageCircle, X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useSpace } from "../lib/store";
@@ -51,6 +51,10 @@ export function MailboxLink({ label = false }: { label?: boolean }) {
 export function IncomingActivity() {
   const { data, demo, userId, run } = useSpace();
   const reduced = useReducedMotion();
+  const location = useLocation();
+  const readingMail =
+    location.pathname === "/mailbox" &&
+    new URLSearchParams(location.search).has("event");
   const shown = useRef(new Set<string>());
   const [active, setActive] = useState<InboxNotification | null>(null);
   // One toast at a time. Previously read activity never replays on reconnect.
@@ -80,7 +84,7 @@ export function IncomingActivity() {
     data.profiles.find((p) => p.id === active?.actor_id)?.name || "Your person";
   return (
     <AnimatePresence>
-      {active && (
+      {active && !readingMail && (
         <motion.aside
           key={active.id}
           className={`activity-toast activity-${active.kind}`}
@@ -114,7 +118,7 @@ export function IncomingActivity() {
             <strong>{activityText(active, name)}</strong>
             {active.body && <p>{active.body}</p>}
             <Link
-              to={`/mailbox?event=${active.event_id}`}
+              to={`/mailbox?event=${active.event_id}&mail=${active.id}`}
               onClick={() => {
                 void run(
                   () => markNotificationsRead(demo, userId, [active.id]),

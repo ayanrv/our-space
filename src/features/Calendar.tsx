@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useState, useId } from "react";
+import { useState, useId, useEffect } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -12,6 +12,7 @@ import {
   LockKeyhole,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import { HeartLetter } from "./HeartLetter";
 import { Modal } from "../components/Modal";
 import { Empty, Field } from "../components/Form";
 import { useSpace } from "../lib/store";
@@ -24,7 +25,12 @@ import {
   respondToEvent,
   sendDateNote,
 } from "../lib/repository";
-import type { EventKind, Idea, SharedEvent } from "../lib/types";
+import type {
+  EventKind,
+  Idea,
+  SharedEvent,
+  InboxNotification,
+} from "../lib/types";
 import {
   addDays,
   dayKey,
@@ -243,6 +249,11 @@ export function Invitation({ event }: { event: SharedEvent }) {
   const [open, setOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [justSent, setJustSent] = useState(false);
+  useEffect(() => {
+    if (!justSent) return;
+    const timer = window.setTimeout(() => setJustSent(false), 1600);
+    return () => clearTimeout(timer);
+  }, [justSent]);
   const [note, setNote] = useState("");
   const noteId = useId();
   const sender =
@@ -487,7 +498,6 @@ export function Invitation({ event }: { event: SharedEvent }) {
                           ? { scale: [1, 1.25, 1], rotate: [0, -10, 8, 0] }
                           : { scale: 1 }
                       }
-                      onAnimationComplete={() => setJustSent(false)}
                       className={
                         "heart-button " +
                         (liked ? "liked " : "") +
@@ -511,7 +521,11 @@ export function Invitation({ event }: { event: SharedEvent }) {
                       <Heart size={20} fill={liked ? "currentColor" : "none"} />
                       {justSent && (
                         <span className="sent-heart-spark" aria-hidden="true">
-                          ♡
+                          <Heart
+                            size={28}
+                            fill="currentColor"
+                            strokeWidth={1.5}
+                          />
                         </span>
                       )}
                     </motion.button>
@@ -535,11 +549,13 @@ export function Invitation({ event }: { event: SharedEvent }) {
 export function EventDetail({
   event,
   onClose,
+  mail,
 }: {
   event: SharedEvent | null;
   onClose: () => void;
+  mail?: InboxNotification;
 }) {
-  const { demo, run, busy, error } = useSpace();
+  const { data, demo, run, busy, error } = useSpace();
   const [deleting, setDeleting] = useState(false);
   if (!event) return null;
   return (
@@ -549,6 +565,15 @@ export function EventDetail({
       title={event.title}
       description={`${event.status === "tentative" ? "Tentative · " : ""}${event.timezone}`}
     >
+      {mail?.kind === "heart" && (
+        <HeartLetter
+          key={mail.id}
+          name={
+            data.profiles.find((p) => p.id === mail.actor_id)?.name ||
+            "Your person"
+          }
+        />
+      )}
       <Invitation event={event} />
       <form
         className="reschedule"

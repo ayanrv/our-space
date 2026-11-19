@@ -85,7 +85,7 @@ export function Mailbox() {
                   key={n.id}
                   className={`inbox-item ${n.read_at ? "" : "is-unread"}`}
                   onClick={() => {
-                    setParams({ event: n.event_id });
+                    setParams({ event: n.event_id, mail: n.id });
                     void run(
                       () => markNotificationsRead(demo, userId, [n.id]),
                       "Opened your mail",
@@ -191,7 +191,10 @@ export function Mailbox() {
         <Empty>Your planned dates will appear here and on the calendar.</Empty>
       )}
       <EventDetail
-        key={selected}
+        key={`${selected}:${params.get("mail") || ""}`}
+        mail={data.notifications.find(
+          (n) => n.id === params.get("mail") && n.event_id === selected,
+        )}
         event={data.events.find((e) => e.id === selected) || null}
         onClose={() => {
           setDetail(null);

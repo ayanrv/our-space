@@ -35,6 +35,7 @@ const Meals = lazy(() =>
 const Trips = lazy(() =>
   import("./features/Trips").then((m) => ({ default: m.Trips })),
 );
+import { Avatar } from "./components/Avatar";
 import { dayKey } from "./lib/dates";
 
 function Home() {
@@ -183,9 +184,7 @@ function Shell({
             aria-label={data.profiles.map((p) => p.name).join(" and ")}
           >
             {data.profiles.map((p, i) => (
-              <span key={p.id} className={"avatar " + (i ? "green" : "")}>
-                {p.name.slice(0, 1)}
-              </span>
+              <Avatar key={p.id} profile={p} green={!!i} />
             ))}
           </div>
           <span className="header-names">

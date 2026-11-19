@@ -1,12 +1,13 @@
 # Enable shared planning v2
 
-Apply this release to a preview first. It needs three new database migrations before the new UI can load. Do not rerun 001 or delete existing tables.
+Apply this release to a preview first. It needs four new database migrations before the new UI can load. Do not rerun 001 or delete existing tables.
 
 1. Run `supabase/migrations/002_planning.sql` in Supabase SQL Editor, once.
 2. Run `supabase/migrations/003_email_reminders.sql`, once.
 3. Run `supabase/migrations/004_mailbox_notifications.sql`, once. If you already ran 002 and 003 for the preview, run only 004. This enables recipient-only unread notifications and reply notes.
-4. In Authentication → URL Configuration, add your production URL with `/reset-password` to the redirect allowlist. Keep the existing production root and local development entries. Add `http://localhost:5173/reset-password` for local password-reset testing. Confirmation links carrying `?invite=...` also need an allowed URL pattern, e.g. your exact production origin followed by `/**`. Use only your own origins; do not allow all Vercel projects.
-5. Build and deploy the branch on Vercel, then test with your separate test accounts before merging to main.
+4. Run `supabase/migrations/005_profile_pictures.sql`, once. If earlier migrations were already applied, run only the new ones. This creates a private image bucket and profile-picture permissions.
+5. In Authentication → URL Configuration, add your production URL with `/reset-password` to the redirect allowlist. Keep the existing production root and local development entries. Add `http://localhost:5173/reset-password` for local password-reset testing. Confirmation links carrying `?invite=...` also need an allowed URL pattern, e.g. your exact production origin followed by `/**`. Use only your own origins; do not allow all Vercel projects.
+6. Build and deploy the branch on Vercel, then test with your separate test accounts before merging to main.
 
 ## Daily email summaries
 
@@ -75,3 +76,13 @@ Apply `004_mailbox_notifications.sql` before deploying the updated branch. It ad
 Unread counts appear in the header mailbox and home mailbox link. Opening a notification marks only that entry read; “Mark all as read” is explicit. Dismissing the arrival toast leaves it unread. Offline arrivals appear on the next app visit; the open app refreshes via Realtime and a 30-second polling fallback. Read notifications do not replay their arrival animation. These are in-app alerts, not background phone push notifications or individual activity emails. Existing upcoming invitations are backfilled once; historical hearts and replies are not replayed. Activity disappears when its event is deleted.
 
 Test with your paired test accounts: create a date as A, check B’s unread badge and invitation, accept with a note as B, send a heart, then check A’s two new entries and arriving-heart animation. Send an independent note back, mark entries read, reload and confirm counts stay read. Test night mode and reduced motion. Date repetition is now opt-in via “Repeat this plan”; unticked creates exactly one event.
+
+## Profile pictures and opened heart letters
+
+Apply `005_profile_pictures.sql` once before testing photo uploads. It creates the private `profile-pictures` bucket with 2 MB stored-file and JPG/PNG/WebP restrictions; only owners can upload/delete in their folder, and only owners or a current space partner can read the chosen picture. The frontend requests one-hour signed URLs, refreshing them before expiry. A signed link is a temporary bearer link; do not publish it. Avatar updates use the profiles Realtime publication with the existing polling fallback.
+
+Settings → Your profile → Choose a profile picture accepts JPG, PNG or WebP up to 5 MB. The browser center-crops to 512×512 and re-encodes before upload, removing source metadata. Removing a photo restores initials; replacing/removing attempts to clean up its previous stored file. Failed profile saves remove the newly uploaded file and preserve the previous selection. Demo uploads stay in that visitor’s browser and never touch Supabase. Uploads require no changes to Brevo, the reminder function or Vercel secrets.
+
+The sent heart now has its own 1.6-second lifecycle independent of the button bounce, a filled icon and contrasting badge in both themes. Opening a heart notification shows a heart letter animation even if the entry is already read, with “Play it again”; entry URLs carry the notification ID as well as the event ID. Dismissing or reading notifications still does not resend a heart. Reduced-motion users see the stationary heart letter without flying particles.
+
+“Resend confirmation” is hidden on initial login/signup screens and during password reset. It appears only after a signup awaiting confirmation or an unconfirmed-email sign-in error. Password recovery keeps its separate “Send reset link” action.
