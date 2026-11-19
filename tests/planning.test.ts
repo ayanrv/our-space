@@ -13,7 +13,7 @@ async function asUser(id: string) {
 }
 beforeAll(async () => {
   await db.exec(
-    `create role anon;create role authenticated;create role service_role bypassrls;create schema auth;create schema extensions;create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz);create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;grant usage on schema auth,public to authenticated,service_role;grant execute on function auth.uid() to authenticated;insert into auth.users values('${alex}','alex@example.test',now()),('${sam}','sam@example.test',now()),('${other}','other@example.test',now());`,
+    `create role anon;create role authenticated;create role service_role bypassrls;create schema auth;create schema extensions;create table auth.users(id uuid primary key,email varchar(255),email_confirmed_at timestamptz);create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;grant usage on schema auth,public to authenticated,service_role;grant execute on function auth.uid() to authenticated;insert into auth.users values('${alex}','alex@example.test',now()),('${sam}','sam@example.test',now()),('${other}','other@example.test',now());`,
   );
   for (const file of [
     "001_shared_space.sql",
