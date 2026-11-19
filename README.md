@@ -68,6 +68,6 @@ Most plans start in conversation. Our Space gives them somewhere to live afterwa
 
 Notifications are created by database triggers alongside the activity they describe. Recipient-only access policies keep mailbox entries private, and repeated heart submissions do not create duplicate reactions. Surprise details are stored separately from the shared calendar entry until the organizer reveals them.
 
-Profile pictures use private storage. The browser crops and re-encodes an image before uploading it, and the app displays it using a temporary signed link. Daily reminder emails contain counts rather than event titles, locations or personal notes.
+Profile pictures use private storage. The browser crops and re-encodes an image before uploading it, and the app displays it using a temporary signed link. Daily agenda emails list unfinished chores and today’s and tomorrow’s plans, with explicit empty-day messages. They omit your partner’s private tasks, invitation notes and hidden surprise details.
 
 The public demo uses the same interface with fictional local data. Its build configuration prevents it from creating a Supabase client.

@@ -20,6 +20,7 @@ beforeAll(async () => {
     "002_planning.sql",
     "003_email_reminders.sql",
     "004_mailbox_notifications.sql",
+    "006_daily_agenda.sql",
   ]) {
     const sql = readFileSync(
       new URL("../supabase/migrations/" + file, import.meta.url),
@@ -339,4 +340,154 @@ it("sends independent notes only to the date partner and rejects outsiders and o
   await expect(
     db.query("select send_date_note($1,'hello')", [event]),
   ).rejects.toThrow("unavailable");
+});
+
+it("builds daily agenda lists without leaking partner-private tasks or surprises", async () => {
+  await asUser(alex);
+  await db.query(
+    "insert into tasks(space_id,title,owner_id,due_date) values($1,'Partner laundry',$2,null)",
+    [space, sam],
+  );
+  await db.query(
+    "insert into tasks(space_id,title,created_by,private) values($1,'My private chore',$2,true)",
+    [space, alex],
+  );
+  await db.query(
+    "insert into tasks(space_id,title,done) values($1,'Already finished',true)",
+    [space],
+  );
+  await db.query(
+    "insert into tasks(space_id,title,due_date) values($1,'Future chore','2031-01-01')",
+    [space],
+  );
+  await db.query("select create_event($1)", [
+    JSON.stringify({
+      space_id: space,
+      title: "Secret title never mailed",
+      day: "2027-03-28",
+      at_time: "01:30",
+      timezone: "UTC",
+      kind: "date",
+      surprise: true,
+      place: "Hidden address",
+      message: "Hidden note",
+    }),
+  ]);
+  await db.exec("reset role");
+  await db.query(
+    "update reminder_preferences set timezone='Europe/Paris' where user_id=$1",
+    [alex],
+  );
+  await db.exec("set role service_role");
+  const a = (
+    await db.query<{ agenda: any }>(
+      "select reminder_agenda($1,'2027-03-28') agenda",
+      [alex],
+    )
+  ).rows[0].agenda;
+  const tasks = a.chores.items.map((t: any) => t.title);
+  expect(tasks).toContain("Partner laundry");
+  expect(tasks).toContain("My private chore");
+  expect(tasks).toContain("Future chore");
+  expect(tasks).not.toContain("Already finished");
+  expect(tasks).not.toContain("Private partner task");
+  expect(a.today.items).toContainEqual({
+    title: "A surprise for you",
+    at_time: "03:30",
+    kind: "date",
+  });
+  expect(JSON.stringify(a)).not.toContain("Secret title never mailed");
+  expect(JSON.stringify(a)).not.toContain("Hidden address");
+  expect(JSON.stringify(a)).not.toContain("Hidden note");
+  await asUser(sam);
+  await expect(
+    db.query("select reminder_agenda($1,current_date)", [alex]),
+  ).rejects.toThrow();
+  await expect(db.query("select claim_daily_agenda()")).rejects.toThrow();
+});
+it("moves timed plans across midnight and includes trips on both days", async () => {
+  await asUser(alex);
+  await db.query("select create_event($1)", [
+    JSON.stringify({
+      space_id: space,
+      title: "Late UTC plan",
+      day: "2027-03-27",
+      at_time: "23:30",
+      timezone: "UTC",
+      kind: "plan",
+    }),
+  ]);
+  await db.query(
+    "insert into trips(space_id,title,start_day,end_day) values($1,'Long weekend','2027-03-28','2027-03-29')",
+    [space],
+  );
+  await db.exec("reset role");
+  await db.exec("set role service_role");
+  const a = (
+    await db.query<{ agenda: any }>(
+      "select reminder_agenda($1,'2027-03-28') agenda",
+      [alex],
+    )
+  ).rows[0].agenda;
+  expect(a.today.items).toContainEqual({
+    title: "Late UTC plan",
+    at_time: "00:30",
+    kind: "plan",
+  });
+  for (const section of [a.today, a.tomorrow])
+    expect(section.items).toContainEqual({
+      title: "Long weekend",
+      at_time: null,
+      kind: "trip",
+    });
+});
+it("claims quiet days once and exposes only the signed-in person's delivery status", async () => {
+  await asUser(other);
+  await db.query(
+    "insert into reminder_preferences(user_id,enabled,timezone,hour) values($1,true,'UTC',0)",
+    [other],
+  );
+  expect(
+    (await db.query("select * from my_reminder_status()")).rows,
+  ).toHaveLength(0);
+  await db.exec("reset role");
+  await db.exec("set role service_role");
+  const jobs = (
+    await db.query<{ user_id: string; agenda: any }>(
+      "select * from claim_daily_agenda()",
+    )
+  ).rows;
+  const empty = jobs.find((j) => j.user_id === other)!;
+  expect(empty.agenda.chores).toEqual({ total: 0, items: [] });
+  expect(empty.agenda.today).toEqual({ total: 0, items: [] });
+  expect(empty.agenda.tomorrow).toEqual({ total: 0, items: [] });
+  expect(
+    (await db.query("select * from claim_daily_agenda()")).rows,
+  ).toHaveLength(0);
+  await asUser(other);
+  expect(
+    (await db.query("select * from my_reminder_status()")).rows,
+  ).toHaveLength(1);
+  await asUser(sam);
+  expect(
+    (await db.query("select * from my_reminder_status()")).rows,
+  ).toHaveLength(0);
+});
+
+it("caps long chore lists while preserving their total", async () => {
+  await asUser(other);
+  await db.query(
+    "insert into tasks(space_id,title) select space_id,'Chore '||n from memberships cross join generate_series(1,55) n where user_id=$1",
+    [other],
+  );
+  await db.exec("reset role");
+  await db.exec("set role service_role");
+  const a = (
+    await db.query<{ agenda: any }>(
+      "select reminder_agenda($1,current_date) agenda",
+      [other],
+    )
+  ).rows[0].agenda;
+  expect(a.chores.total).toBe(55);
+  expect(a.chores.items).toHaveLength(50);
 });

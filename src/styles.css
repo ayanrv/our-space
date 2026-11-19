@@ -2146,3 +2146,15 @@ a.agenda-event {
     display: none;
   }
 }
+.reminder-delivery {
+  margin-top: 20px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+}
+.reminder-delivery p {
+  margin: 7px 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
