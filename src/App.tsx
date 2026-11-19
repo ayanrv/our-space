@@ -28,6 +28,7 @@ import { Plans } from "./features/Plans";
 import { Settings } from "./features/Settings";
 import { Portfolio } from "./features/Portfolio";
 import { Mailbox } from "./features/Mailbox";
+import { MailboxLink, IncomingActivity } from "./features/Notifications";
 const Meals = lazy(() =>
   import("./features/Meals").then((m) => ({ default: m.Meals })),
 );
@@ -77,10 +78,7 @@ function Home() {
           </Link>
         </div>
         <aside className="home-aside">
-          <div className="mailbox-label">
-            <Mail size={16} />
-            Your mailbox
-          </div>
+          <MailboxLink label />
           {next ? (
             <Invitation key={next.id} event={next} />
           ) : (
@@ -202,13 +200,7 @@ function Shell({
           >
             {theme === "day" ? <Moon size={20} /> : <Sun size={20} />}
           </button>
-          <NavLink
-            to="/mailbox"
-            className="icon-button"
-            aria-label="Your mailbox"
-          >
-            <Mail size={20} />
-          </NavLink>
+          <MailboxLink />
           <NavLink to="/settings" className="icon-button" aria-label="Settings">
             <Settings2 size={20} />
           </NavLink>
@@ -329,6 +321,7 @@ function Shell({
           </motion.div>
         )}
       </AnimatePresence>
+      <IncomingActivity />
       <footer className="app-footer">
         <Flower2 size={14} />
         <span>A space for the two of you.</span>

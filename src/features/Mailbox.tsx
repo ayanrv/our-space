@@ -1,14 +1,20 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Mail, Heart } from "lucide-react";
 import { useSpace } from "../lib/store";
 import { Invitation, EventDetail } from "./Calendar";
 import { Empty } from "../components/Form";
+import { markNotificationsRead } from "../lib/repository";
+import { ActivityIcon, activityText } from "./Notifications";
 import { dayKey, niceDay } from "../lib/dates";
 export function Mailbox() {
-  const { data, userId } = useSpace();
+  const { data, userId, demo, run, busy } = useSpace();
+  const [params, setParams] = useSearchParams();
+  const unread = data.notifications.filter((n) => !n.read_at);
   const [archive, setArchive] = useState(false);
   const [detail, setDetail] = useState<string | null>(null);
+  const selected = params.get("event") || detail;
+  const [onlyUnread, setOnlyUnread] = useState(false);
   const dates = data.events
     .filter(
       (e) =>
@@ -29,6 +35,94 @@ export function Mailbox() {
           Plan a date
         </Link>
       </div>
+      <section className="mailbox-inbox" aria-label="Notifications">
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">Little things, delivered</span>
+            <h2>
+              Your letters{" "}
+              <span className="inbox-total">
+                {unread.length ? `${unread.length} unread` : "All caught up"}
+              </span>
+            </h2>
+          </div>
+          <button
+            className="text-button"
+            disabled={busy || !unread.length}
+            onClick={() =>
+              void run(
+                () =>
+                  markNotificationsRead(
+                    demo,
+                    userId,
+                    unread.map((n) => n.id),
+                  ),
+                "All caught up ♡",
+              )
+            }
+          >
+            Mark all as read
+          </button>
+        </div>
+        <label className="check-label">
+          <input
+            type="checkbox"
+            checked={onlyUnread}
+            onChange={(e) => setOnlyUnread(e.target.checked)}
+          />
+          Unread only
+        </label>
+        <div className="inbox-list">
+          {data.notifications
+            .filter((n) => !onlyUnread || !n.read_at)
+            .map((n) => {
+              const event = data.events.find((e) => e.id === n.event_id);
+              const name =
+                data.profiles.find((p) => p.id === n.actor_id)?.name ||
+                "Your person";
+              return (
+                <button
+                  key={n.id}
+                  className={`inbox-item ${n.read_at ? "" : "is-unread"}`}
+                  onClick={() => {
+                    setParams({ event: n.event_id });
+                    void run(
+                      () => markNotificationsRead(demo, userId, [n.id]),
+                      "Opened your mail",
+                    );
+                  }}
+                >
+                  <span className={`inbox-icon kind-${n.kind}`}>
+                    <ActivityIcon kind={n.kind} />
+                  </span>
+                  <span className="inbox-copy">
+                    <strong>{activityText(n, name)}</strong>
+                    {n.body && <span className="inbox-note">“{n.body}”</span>}
+                    <small>
+                      {event?.title || "A date together"} ·{" "}
+                      {new Date(n.created_at).toLocaleString("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </small>
+                  </span>
+                  {!n.read_at && (
+                    <span className="unread-dot" aria-label="Unread" />
+                  )}
+                </button>
+              );
+            })}
+        </div>
+        {!data.notifications.some((n) => !onlyUnread || !n.read_at) && (
+          <Empty>
+            {onlyUnread
+              ? "All caught up. Your next little letter will find you here."
+              : "Invitations, replies, hearts and little notes will land here."}
+          </Empty>
+        )}
+      </section>
       <div className="segmented">
         <button aria-pressed={!archive} onClick={() => setArchive(false)}>
           Upcoming
@@ -97,8 +191,12 @@ export function Mailbox() {
         <Empty>Your planned dates will appear here and on the calendar.</Empty>
       )}
       <EventDetail
-        event={data.events.find((e) => e.id === detail) || null}
-        onClose={() => setDetail(null)}
+        key={selected}
+        event={data.events.find((e) => e.id === selected) || null}
+        onClose={() => {
+          setDetail(null);
+          setParams({});
+        }}
       />
     </>
   );

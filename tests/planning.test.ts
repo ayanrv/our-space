@@ -19,6 +19,7 @@ beforeAll(async () => {
     "001_shared_space.sql",
     "002_planning.sql",
     "003_email_reminders.sql",
+    "004_mailbox_notifications.sql",
   ]) {
     const sql = readFileSync(
       new URL("../supabase/migrations/" + file, import.meta.url),
@@ -246,4 +247,96 @@ it("does not allow invalid time zones or a recurrence without a date", async () 
       [space],
     ),
   ).rejects.toThrow();
+});
+
+it("delivers private invitation, heart and reply activity exactly once per change", async () => {
+  await asUser(alex);
+  expect(
+    (await db.query("select * from notifications where kind='invitation'"))
+      .rows,
+  ).toHaveLength(0);
+  // The earlier recipient sent the heart twice, with ON CONFLICT DO NOTHING.
+  expect(
+    (await db.query("select * from notifications where kind='heart'")).rows,
+  ).toHaveLength(1);
+  await asUser(sam);
+  expect(
+    (await db.query("select * from notifications where kind='invitation'"))
+      .rows,
+  ).toHaveLength(2);
+  await db.query(
+    "insert into event_responses(event_id,user_id,response,note) values($1,$2,'accepted','Can’t wait ♡')",
+    [event, sam],
+  );
+  await db.query(
+    "update event_responses set updated_at=now() where event_id=$1",
+    [event],
+  );
+  await asUser(alex);
+  const replies = (
+    await db.query<{ body: string }>(
+      "select body from notifications where kind='accepted' order by created_at",
+    )
+  ).rows;
+  expect(replies).toHaveLength(2); // one earlier response, one after rescheduling
+  expect(replies[1].body).toBe("Can’t wait ♡");
+  await asUser(other);
+  expect((await db.query("select * from notifications")).rows).toHaveLength(0);
+});
+it("allows only recipients to mark notifications read, without forging activity", async () => {
+  await asUser(alex);
+  const id = (
+    await db.query<{ id: string }>("select id from notifications limit 1")
+  ).rows[0].id;
+  await db.query("update notifications set read_at=now() where id=$1", [id]);
+  expect(
+    (
+      await db.query<{ read_at: string }>(
+        "select read_at from notifications where id=$1",
+        [id],
+      )
+    ).rows[0].read_at,
+  ).toBeTruthy();
+  await expect(
+    db.query("update notifications set body='Forged' where id=$1", [id]),
+  ).rejects.toThrow();
+  await expect(
+    db.query(
+      "insert into notifications(recipient_id,actor_id,event_id,kind) values($1,$2,$3,'accepted')",
+      [sam, alex, event],
+    ),
+  ).rejects.toThrow();
+  await asUser(sam);
+  expect(
+    (
+      await db.query(
+        "update notifications set read_at=now() where id=$1 returning id",
+        [id],
+      )
+    ).rows,
+  ).toHaveLength(0);
+});
+it("sends independent notes only to the date partner and rejects outsiders and oversized notes", async () => {
+  await asUser(alex);
+  await db.query("select send_date_note($1,'Bring your favourite scarf ♡')", [
+    event,
+  ]);
+  await asUser(sam);
+  expect(
+    (
+      await db.query<{ body: string }>(
+        "select body from notifications where kind='note'",
+      )
+    ).rows[0].body,
+  ).toBe("Bring your favourite scarf ♡");
+  await expect(
+    db.query("select send_date_note($1,$2)", [event, "x".repeat(501)]),
+  ).rejects.toThrow();
+  await expect(
+    db.query("select send_date_note($1,'  ')", [event]),
+  ).rejects.toThrow();
+  await asUser(other);
+  await expect(
+    db.query("select send_date_note($1,'hello')", [event]),
+  ).rejects.toThrow("unavailable");
 });

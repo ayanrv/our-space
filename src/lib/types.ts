@@ -54,6 +54,17 @@ export type EventResponse = {
   event_id: string;
   user_id: string;
   response: "accepted" | "reschedule";
+  note?: string;
+};
+export type InboxNotification = {
+  id: string;
+  recipient_id: string;
+  actor_id: string;
+  event_id: string;
+  kind: "invitation" | "accepted" | "reschedule" | "heart" | "note";
+  body: string;
+  created_at: string;
+  read_at: string | null;
 };
 export type Meal = {
   id: string;
@@ -104,6 +115,7 @@ export type Snapshot = {
   trips: Trip[];
   trip_items: TripItem[];
   reminder_preferences: ReminderPreference[];
+  notifications: InboxNotification[];
 };
 export type Table =
   | "tasks"
@@ -134,4 +146,5 @@ export const emptySnapshot: Snapshot = {
   trips: [],
   trip_items: [],
   reminder_preferences: [],
+  notifications: [],
 };

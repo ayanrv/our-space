@@ -72,6 +72,18 @@ export function seedDemo(): Snapshot {
       },
     ],
     event_secrets: [],
+    notifications: [
+      {
+        id: "welcome-invitation",
+        recipient_id: demoUser,
+        actor_id: "demo-sam",
+        event_id: "date-1",
+        kind: "invitation",
+        body: "",
+        created_at: new Date().toISOString(),
+        read_at: null,
+      },
+    ],
     reactions: [],
     event_responses: [],
     meals: [],
@@ -101,7 +113,7 @@ export function seedDemo(): Snapshot {
 export function readDemo(): Snapshot {
   try {
     const saved = localStorage.getItem(storageKey);
-    if (saved) return JSON.parse(saved);
+    if (saved) return { notifications: [], ...JSON.parse(saved) };
   } catch {
     /* An old or blocked browser cache is safe to ignore in demo mode. */
   }

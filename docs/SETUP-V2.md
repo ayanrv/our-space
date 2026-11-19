@@ -1,11 +1,12 @@
 # Enable shared planning v2
 
-Apply this release to a preview first. It needs two new database migrations before the new UI can load. Do not rerun 001 or delete existing tables.
+Apply this release to a preview first. It needs three new database migrations before the new UI can load. Do not rerun 001 or delete existing tables.
 
 1. Run `supabase/migrations/002_planning.sql` in Supabase SQL Editor, once.
 2. Run `supabase/migrations/003_email_reminders.sql`, once.
-3. In Authentication → URL Configuration, add your production URL with `/reset-password` to the redirect allowlist. Keep the existing production root and local development entries. Add `http://localhost:5173/reset-password` for local password-reset testing. Confirmation links carrying `?invite=...` also need an allowed URL pattern, e.g. your exact production origin followed by `/**`. Use only your own origins; do not allow all Vercel projects.
-4. Build and deploy the branch on Vercel, then test with your separate test accounts before merging to main.
+3. Run `supabase/migrations/004_mailbox_notifications.sql`, once. If you already ran 002 and 003 for the preview, run only 004. This enables recipient-only unread notifications and reply notes.
+4. In Authentication → URL Configuration, add your production URL with `/reset-password` to the redirect allowlist. Keep the existing production root and local development entries. Add `http://localhost:5173/reset-password` for local password-reset testing. Confirmation links carrying `?invite=...` also need an allowed URL pattern, e.g. your exact production origin followed by `/**`. Use only your own origins; do not allow all Vercel projects.
+5. Build and deploy the branch on Vercel, then test with your separate test accounts before merging to main.
 
 ## Daily email summaries
 
@@ -25,11 +26,11 @@ The function uses its own `x-cron-secret` check. It rejects calls without the ma
 
 In Supabase → Edge Functions → Secrets, add:
 
-| Secret | Value |
-| --- | --- |
-| `BREVO_API_KEY` | A new Brevo API key (not the SMTP key) |
-| `BREVO_SENDER_EMAIL` | The exact verified Brevo sender address |
-| `APP_URL` | Your production HTTPS origin, without a trailing slash |
+| Secret                 | Value                                                      |
+| ---------------------- | ---------------------------------------------------------- |
+| `BREVO_API_KEY`        | A new Brevo API key (not the SMTP key)                     |
+| `BREVO_SENDER_EMAIL`   | The exact verified Brevo sender address                    |
+| `APP_URL`              | Your production HTTPS origin, without a trailing slash     |
 | `REMINDER_CRON_SECRET` | A randomly generated long password, at least 32 characters |
 
 Supabase provides `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to the function automatically. Never put server secrets in Vercel’s `VITE_` variables, frontend code, screenshots or GitHub. Brevo may require authorizing its API connection separately from SMTP. Check its logs if a request is rejected.
@@ -66,3 +67,11 @@ Suggested portfolio framing: “Our Space — a shared household planner that co
 Recipient-only mailbox, sender plans and reply status, one-time hearts, three card designs, accepted/another-time responses, password recovery/resend confirmation, invitation preservation across confirmation, recurring tasks (daily/weekly/14/30 days), bounded repeating calendar entries (up to 12), weekly meals with once-only ingredient transfer, trips with dates/budget/costs/packing/itinerary, optional email summaries and isolated portfolio demo.
 
 A recurring task advances its existing row by one period; it does not yet keep a completion history. Repeated events are independent entries, so edit or delete each occurrence separately. Rescheduling a date clears its old reply. Ingredient edits do not change items already copied to groceries. Trip planning uses EUR and entered costs, without currency conversion or booking integrations. WhatsApp, push notifications, offline editing, avatars and automatic scheduling are not included.
+
+## Mailbox activity update
+
+Apply `004_mailbox_notifications.sql` before deploying the updated branch. It adds recipient-only notifications, a read timestamp and optional RSVP notes. Only the database emits invitation, heart and reply activity; clients cannot forge notifications or change their content. A separate authorized RPC sends a note to the date partner. Notes are limited to 500 characters and are never copied into reminder emails.
+
+Unread counts appear in the header mailbox and home mailbox link. Opening a notification marks only that entry read; “Mark all as read” is explicit. Dismissing the arrival toast leaves it unread. Offline arrivals appear on the next app visit; the open app refreshes via Realtime and a 30-second polling fallback. Read notifications do not replay their arrival animation. These are in-app alerts, not background phone push notifications or individual activity emails. Existing upcoming invitations are backfilled once; historical hearts and replies are not replayed. Activity disappears when its event is deleted.
+
+Test with your paired test accounts: create a date as A, check B’s unread badge and invitation, accept with a note as B, send a heart, then check A’s two new entries and arriving-heart animation. Send an independent note back, mark entries read, reload and confirm counts stay read. Test night mode and reduced motion. Date repetition is now opt-in via “Repeat this plan”; unticked creates exactly one event.

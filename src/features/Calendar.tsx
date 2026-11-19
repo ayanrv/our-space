@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useState } from "react";
+import { useState, useId } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -22,6 +22,7 @@ import {
   saveRow,
   sendHeart,
   respondToEvent,
+  sendDateNote,
 } from "../lib/repository";
 import type { EventKind, Idea, SharedEvent } from "../lib/types";
 import {
@@ -47,6 +48,7 @@ export function EventForm({
 }) {
   const { data, userId, demo, run, busy, error } = useSpace();
   const [surprise, setSurprise] = useState(false);
+  const [repeating, setRepeating] = useState(false);
   return (
     <Modal
       open={open}
@@ -77,8 +79,8 @@ export function EventForm({
                   surprise,
                   card_style: String(f.get("card_style")) as
                     "cherry" | "pistachio" | "midnight",
-                  repeat_count: Number(f.get("repeat_count")),
-                  repeat_days: Number(f.get("repeat_days")),
+                  repeat_count: repeating ? Number(f.get("repeat_count")) : 1,
+                  repeat_days: repeating ? Number(f.get("repeat_days")) : 7,
                 }),
               "Added to your calendar",
             )
@@ -136,23 +138,37 @@ export function EventForm({
               <option value="midnight">Under the stars</option>
             </select>
           </Field>
-          <Field label="How many times?">
-            <input
-              name="repeat_count"
-              type="number"
-              min="1"
-              max="12"
-              defaultValue="1"
-              required
-            />
-          </Field>
-          <Field label="Repeat every (when more than once)">
-            <select name="repeat_days">
-              <option value="7">Week</option>
-              <option value="14">Two weeks</option>
-              <option value="1">Day</option>
-            </select>
-          </Field>
+          <div className="full">
+            <label className="check-label">
+              <input
+                type="checkbox"
+                checked={repeating}
+                onChange={(e) => setRepeating(e.target.checked)}
+              />
+              Repeat this plan
+            </label>
+          </div>
+          {repeating && (
+            <>
+              <Field label="How many times?">
+                <input
+                  name="repeat_count"
+                  type="number"
+                  min="1"
+                  max="12"
+                  defaultValue="1"
+                  required
+                />
+              </Field>
+              <Field label="Repeat every (when more than once)">
+                <select name="repeat_days">
+                  <option value="7">Week</option>
+                  <option value="14">Two weeks</option>
+                  <option value="1">Day</option>
+                </select>
+              </Field>
+            </>
+          )}
           <Field label="Time zone" wide>
             <select name="timezone" defaultValue="Europe/Paris">
               <option>Europe/Paris</option>
@@ -207,10 +223,12 @@ export function EventForm({
             {error}
           </p>
         )}
-        <p className="small muted">
-          Repeating creates separate calendar entries. You can reschedule or
-          delete each occurrence.
-        </p>
+        {repeating && (
+          <p className="small muted">
+            Repeating creates separate calendar entries. You can reschedule or
+            delete each occurrence.
+          </p>
+        )}
         <div className="form-actions">
           <button className="button primary" disabled={busy}>
             {busy ? "Saving…" : "Save plan"}
@@ -225,6 +243,8 @@ export function Invitation({ event }: { event: SharedEvent }) {
   const [open, setOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [justSent, setJustSent] = useState(false);
+  const [note, setNote] = useState("");
+  const noteId = useId();
   const sender =
     data.profiles.find((p) => p.id === event.created_by)?.name || "Your person";
   const recipient =
@@ -242,7 +262,20 @@ export function Invitation({ event }: { event: SharedEvent }) {
     (r) => r.event_id === event.id,
   )?.response;
   return (
-    <article className={"invitation card-" + (event.card_style || "cherry")}>
+    <article
+      className={
+        "invitation card-" +
+        (event.card_style || "cherry") +
+        (open ? " is-open" : "")
+      }
+    >
+      <div className="postcard-ribbon" aria-hidden="true">
+        {event.card_style === "midnight"
+          ? "✧  a night for us  ✧"
+          : event.card_style === "pistachio"
+            ? "a little time to bloom"
+            : "sealed with a little love"}
+      </div>
       <div className="invitation-address">
         <div>
           <span className="eyebrow">
@@ -261,7 +294,13 @@ export function Invitation({ event }: { event: SharedEvent }) {
           </p>
         </div>
         <span className="stamp">
-          <Flower2 size={24} />
+          {event.card_style === "midnight" ? (
+            <span className="star-stamp">✧</span>
+          ) : event.card_style === "pistachio" ? (
+            <Flower2 size={24} />
+          ) : (
+            <Heart size={24} />
+          )}
         </span>
       </div>
       <h3>
@@ -296,8 +335,9 @@ export function Invitation({ event }: { event: SharedEvent }) {
         {(open || !invitation) && (
           <motion.div
             className="letter"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
+            initial={{ height: 0, opacity: 0, y: 8 }}
+            animate={{ height: "auto", opacity: 1, y: 0 }}
+            transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
             exit={{ height: 0, opacity: 0 }}
           >
             <div className="letter-inner">
@@ -333,36 +373,101 @@ export function Invitation({ event }: { event: SharedEvent }) {
                   </button>
                 </div>
               )}
+              {event.kind === "date" && (
+                <div className="reply-note">
+                  <label htmlFor={noteId}>
+                    A little note{" "}
+                    {invitation ? "with your reply" : "for your person"}{" "}
+                    <span className="muted">(optional)</span>
+                  </label>
+                  <textarea
+                    id={noteId}
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    maxLength={500}
+                    rows={2}
+                    placeholder="Can’t wait to spend this time with you ♡"
+                  />
+                  <div className="note-footer">
+                    <small className="muted">{note.length}/500</small>
+                    <button
+                      className="text-button"
+                      disabled={busy || !note.trim()}
+                      onClick={async () => {
+                        if (
+                          await run(
+                            () => sendDateNote(demo, event.id, userId, note),
+                            "Your note is on its way ♡",
+                          )
+                        )
+                          setNote("");
+                      }}
+                    >
+                      Send just the note ↗
+                    </button>
+                  </div>
+                </div>
+              )}
               {invitation && (
                 <div className="invitation-actions">
                   <button
                     className="button"
                     disabled={busy || response === "accepted"}
-                    onClick={() =>
-                      void run(
-                        () =>
-                          respondToEvent(demo, event.id, userId, "accepted"),
-                        "It’s a date ♡",
+                    onClick={async () => {
+                      if (
+                        await run(
+                          () =>
+                            respondToEvent(
+                              demo,
+                              event.id,
+                              userId,
+                              "accepted",
+                              note.trim(),
+                            ),
+                          "It’s a date ♡",
+                        )
                       )
-                    }
+                        setNote("");
+                    }}
                   >
                     {response === "accepted" ? "Accepted ♡" : "I’d love to"}
                   </button>
                   <button
                     className="text-button"
                     disabled={busy || response === "reschedule"}
-                    onClick={() =>
-                      void run(
-                        () =>
-                          respondToEvent(demo, event.id, userId, "reschedule"),
-                        "Your person can see you’d like another time",
+                    onClick={async () => {
+                      if (
+                        await run(
+                          () =>
+                            respondToEvent(
+                              demo,
+                              event.id,
+                              userId,
+                              "reschedule",
+                              note.trim(),
+                            ),
+                          "Your person can see you’d like another time",
+                        )
                       )
-                    }
+                        setNote("");
+                    }}
                   >
                     Another time?
                   </button>
                 </div>
               )}
+              {mine &&
+                data.event_responses.find((r) => r.event_id === event.id)
+                  ?.note && (
+                  <blockquote className="reply-quote">
+                    “
+                    {
+                      data.event_responses.find((r) => r.event_id === event.id)
+                        ?.note
+                    }
+                    ”<cite>— {recipient}</cite>
+                  </blockquote>
+                )}
               {event.kind === "date" && (
                 <div className="letter-bottom">
                   <span className="small" aria-live="polite">
@@ -383,7 +488,11 @@ export function Invitation({ event }: { event: SharedEvent }) {
                           : { scale: 1 }
                       }
                       onAnimationComplete={() => setJustSent(false)}
-                      className={"heart-button " + (liked ? "liked" : "")}
+                      className={
+                        "heart-button " +
+                        (liked ? "liked " : "") +
+                        (justSent ? "heart-sending" : "")
+                      }
                       aria-label={
                         liked ? "Heart sent" : `Send a heart to ${sender}`
                       }
@@ -400,6 +509,11 @@ export function Invitation({ event }: { event: SharedEvent }) {
                       }}
                     >
                       <Heart size={20} fill={liked ? "currentColor" : "none"} />
+                      {justSent && (
+                        <span className="sent-heart-spark" aria-hidden="true">
+                          ♡
+                        </span>
+                      )}
                     </motion.button>
                   )}
                   {mine && received && (

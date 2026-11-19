@@ -2,7 +2,7 @@ import { supabase } from "./supabase";
 import { readDemo, writeDemo } from "./demo";
 import { addDays } from "./dates";
 import { emptySnapshot } from "./types";
-import type { NewEvent, Snapshot, Table } from "./types";
+import type { InboxNotification, NewEvent, Snapshot, Table } from "./types";
 
 function client() {
   if (!supabase) throw new Error("Connect Supabase to use a shared space.");
@@ -16,6 +16,7 @@ export async function loadSnapshot(
     const d = readDemo();
     return {
       ...d,
+      notifications: d.notifications.filter((n) => n.recipient_id === userId),
       tasks: d.tasks.filter((t) => !t.private || t.created_by === userId),
       event_secrets: d.event_secrets.filter((s) =>
         d.events.some((e) => e.id === s.event_id && e.created_by === userId),
@@ -46,6 +47,10 @@ export async function loadSnapshot(
     db.from("trips").select("*"),
     db.from("trip_items").select("*"),
     db.from("reminder_preferences").select("*"),
+    db
+      .from("notifications")
+      .select("*")
+      .order("created_at", { ascending: false }),
   ];
   const results = await Promise.all(queries);
   for (const result of results) if (result.error) throw result.error;
@@ -65,6 +70,7 @@ export async function loadSnapshot(
       "trips",
       "trip_items",
       "reminder_preferences",
+      "notifications",
     ].map((key, i) => [key, results[i].data]),
   ) as Snapshot;
 }
@@ -111,6 +117,7 @@ export async function deleteRow(demo: boolean, table: Table, id: string) {
       d.event_responses = d.event_responses.filter((r) => r.event_id !== id);
       d.event_secrets = d.event_secrets.filter((r) => r.event_id !== id);
       d.reactions = d.reactions.filter((r) => r.event_id !== id);
+      d.notifications = d.notifications.filter((r) => r.event_id !== id);
     }
     writeDemo(d);
     return;
@@ -145,6 +152,7 @@ export async function createEvent(
             }
           : {}),
       });
+      if (values.kind === "date") demoNotification(d, id, userId, "invitation");
       if (values.surprise)
         d.event_secrets.push({
           event_id: id,
@@ -194,8 +202,10 @@ export async function sendHeart(
       throw new Error("Only the recipient can send a heart.");
     if (
       !d.reactions.some((r) => r.event_id === eventId && r.user_id === userId)
-    )
+    ) {
       d.reactions.push({ event_id: eventId, user_id: userId });
+      demoNotification(d, eventId, userId, "heart");
+    }
     writeDemo(d);
     return;
   }
@@ -212,11 +222,20 @@ export async function respondToEvent(
   eventId: string,
   userId: string,
   response: "accepted" | "reschedule",
+  note = "",
 ) {
   if (demo) {
     const d = readDemo();
+    const old = d.event_responses.find((r) => r.event_id === eventId);
     d.event_responses = d.event_responses.filter((r) => r.event_id !== eventId);
-    d.event_responses.push({ event_id: eventId, user_id: userId, response });
+    d.event_responses.push({
+      event_id: eventId,
+      user_id: userId,
+      response,
+      note,
+    });
+    if (old?.response !== response || (old?.note || "") !== note)
+      demoNotification(d, eventId, userId, response, note);
     writeDemo(d);
     return;
   }
@@ -224,6 +243,7 @@ export async function respondToEvent(
     event_id: eventId,
     user_id: userId,
     response,
+    note,
     updated_at: new Date().toISOString(),
   });
   if (r.error) throw r.error;
@@ -293,5 +313,69 @@ export async function saveReminderPreference(
     return;
   }
   const r = await client().from("reminder_preferences").upsert(values);
+  if (r.error) throw r.error;
+}
+
+function demoNotification(
+  d: Snapshot,
+  eventId: string,
+  actor: string,
+  kind: InboxNotification["kind"],
+  body = "",
+) {
+  for (const p of d.profiles.filter((p) => p.id !== actor))
+    d.notifications.unshift({
+      id: crypto.randomUUID(),
+      recipient_id: p.id,
+      actor_id: actor,
+      event_id: eventId,
+      kind,
+      body,
+      created_at: new Date().toISOString(),
+      read_at: null,
+    });
+}
+export async function sendDateNote(
+  demo: boolean,
+  eventId: string,
+  userId: string,
+  note: string,
+) {
+  const body = note.trim();
+  if (!body || body.length > 500)
+    throw new Error("Write a note of 1 to 500 characters.");
+  if (demo) {
+    const d = readDemo();
+    demoNotification(d, eventId, userId, "note", body);
+    writeDemo(d);
+    return;
+  }
+  const r = await client().rpc("send_date_note", {
+    target_event: eventId,
+    message: body,
+  });
+  if (r.error) throw r.error;
+}
+export async function markNotificationsRead(
+  demo: boolean,
+  userId: string,
+  ids: string[],
+) {
+  if (!ids.length) return;
+  const read_at = new Date().toISOString();
+  if (demo) {
+    const d = readDemo();
+    d.notifications = d.notifications.map((n) =>
+      n.recipient_id === userId && ids.includes(n.id) ? { ...n, read_at } : n,
+    );
+    writeDemo(d);
+    return;
+  }
+  const r = await client()
+    .from("notifications")
+    .update({ read_at })
+    .eq("recipient_id", userId)
+    .in("id", ids)
+    .is("read_at", null);
   if (r.error) throw r.error;
 }

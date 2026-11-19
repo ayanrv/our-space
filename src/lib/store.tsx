@@ -33,6 +33,7 @@ export function SpaceProvider({
     queryKey: key,
     queryFn: () => loadSnapshot(demo, userId),
     refetchOnWindowFocus: true,
+    refetchOnMount: "always",
     refetchInterval: demo ? false : 30000,
     retry: 1,
   });
@@ -71,7 +72,9 @@ export function SpaceProvider({
     setError("");
     try {
       await fn();
-      await queryClient.invalidateQueries({ queryKey: key });
+      await queryClient.invalidateQueries({
+        queryKey: demo ? ["space", true] : key,
+      });
       setNotice(message);
       return true;
     } catch (e) {

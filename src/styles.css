@@ -1576,3 +1576,392 @@ body {
 a.agenda-event {
   text-decoration: none;
 }
+
+/* Small letters, a proper inbox, and a little celebration. */
+.mailbox-link {
+  position: relative;
+  text-decoration: none;
+}
+.mailbox-label.mailbox-link {
+  width: fit-content;
+}
+.unread-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border-radius: 20px;
+  background: var(--cherry);
+  color: var(--cherry-text);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
+}
+.icon-button.mailbox-link .unread-count {
+  position: absolute;
+  top: -3px;
+  right: -5px;
+  box-shadow: 0 0 0 2px var(--bg);
+}
+.mailbox-inbox {
+  margin: 24px 0 36px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+}
+.inbox-total {
+  font:
+    500 0.75rem "DM Sans",
+    sans-serif;
+  color: var(--muted);
+  margin-left: 8px;
+  white-space: nowrap;
+}
+.inbox-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  max-height: 520px;
+  overflow: auto;
+}
+.inbox-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink);
+  padding: 16px;
+  border-radius: 12px;
+}
+.inbox-item:hover,
+.inbox-item:focus-visible {
+  border-color: var(--cherry);
+}
+.inbox-item.is-unread {
+  background: var(--pink);
+}
+.inbox-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 42px;
+  height: 46px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--pink-ink);
+  transform: rotate(-5deg);
+}
+.inbox-icon.kind-accepted {
+  background: var(--soft);
+  color: var(--ink);
+}
+.inbox-icon svg {
+  width: 20px;
+  height: 20px;
+}
+.inbox-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+.inbox-copy strong {
+  font-size: 0.9rem;
+}
+.inbox-copy small {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.inbox-note {
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.unread-dot {
+  width: 7px;
+  height: 7px;
+  background: var(--cherry);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.activity-toast {
+  position: fixed;
+  right: 24px;
+  bottom: 26px;
+  z-index: 100;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  width: min(430px, calc(100vw - 32px));
+  padding: 20px 14px 20px 20px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 12px 45px #0002;
+}
+.activity-art {
+  position: relative;
+  flex-shrink: 0;
+  margin: 7px 0;
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+}
+.activity-symbol {
+  display: grid;
+  place-items: center;
+  width: 50px;
+  height: 50px;
+  border-radius: 17px;
+  background: var(--pink);
+  color: var(--pink-ink);
+  transform: rotate(-9deg);
+}
+.activity-symbol svg {
+  width: 26px;
+  height: 26px;
+}
+.activity-accepted .activity-symbol {
+  background: var(--soft);
+  color: var(--ink);
+}
+.activity-copy {
+  min-width: 0;
+  flex: 1;
+}
+.activity-copy strong {
+  font-size: 0.93rem;
+  line-height: 1.4;
+  display: block;
+}
+.activity-copy p {
+  font-size: 0.9rem;
+  margin: 6px 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 130px;
+  overflow: auto;
+}
+.activity-copy a {
+  display: inline-block;
+  margin-top: 8px;
+  color: var(--cherry);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.heart-petal {
+  position: absolute;
+  left: 18px;
+  top: 16px;
+  color: var(--cherry);
+  font-size: 22px;
+  pointer-events: none;
+  opacity: 0;
+  --angle: calc(var(--i) * 51.4deg);
+  animation: heart-bloom 1.8s calc(var(--i) * 50ms) ease-out 1;
+}
+@keyframes heart-bloom {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--angle)) translateY(0)
+      rotate(calc(-1 * var(--angle))) scale(0.3);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--angle)) translateY(-65px)
+      rotate(calc(-1 * var(--angle))) scale(1.1);
+  }
+}
+.postcard-ribbon {
+  margin: -23px -23px 20px;
+  padding: 10px 20px;
+  background: var(--cherry);
+  color: var(--cherry-text);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 2.2px;
+  text-align: center;
+}
+.invitation {
+  position: relative;
+  border-radius: 16px 16px 8px 8px;
+  box-shadow: 0 6px 0 var(--shadow);
+  transition: box-shadow 0.3s ease;
+}
+.invitation.is-open {
+  box-shadow: 0 10px 0 var(--shadow);
+}
+.invitation .stamp {
+  border: 1px solid currentColor;
+  border-radius: 50% 50% 4px 4px;
+  background: var(--letter);
+  color: var(--pink-ink);
+  height: 60px;
+  width: 48px;
+  outline: 1px dashed currentColor;
+  outline-offset: -5px;
+}
+.invitation.card-pistachio .postcard-ribbon {
+  background: var(--mint);
+  color: var(--mint-ink);
+}
+.invitation.card-pistachio .stamp {
+  background: var(--mint);
+  color: var(--mint-ink);
+}
+.invitation.card-midnight .postcard-ribbon {
+  background: #252438;
+  color: #f1d79e;
+}
+.invitation.card-midnight .stamp {
+  background: #48405c;
+  color: #f1d79e;
+}
+.star-stamp {
+  font-size: 34px;
+  line-height: 1;
+}
+.invitation .response-badge {
+  border-radius: 20px;
+  font-size: 0.72rem;
+  padding: 5px 11px;
+  border-style: dashed;
+}
+.reply-note {
+  margin-top: 18px;
+}
+.reply-note label {
+  display: block;
+  font-size: 0.8rem;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+.reply-note textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 75px;
+}
+.note-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  margin-top: 5px;
+}
+.note-footer .text-button {
+  font-size: 0.75rem;
+}
+.reply-quote {
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  border-left: 3px solid var(--cherry);
+  background: var(--pink);
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border-radius: 0 8px 8px 0;
+}
+.reply-quote cite {
+  display: block;
+  font-size: 0.75rem;
+  margin-top: 5px;
+  font-style: normal;
+}
+.heart-button {
+  position: relative;
+  overflow: visible;
+}
+.sent-heart-spark {
+  position: absolute;
+  left: 10px;
+  top: 0;
+  font-size: 30px;
+  pointer-events: none;
+  animation: heart-lift 0.9s ease-out both;
+}
+@keyframes heart-lift {
+  from {
+    transform: translateY(0) scale(0.6);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-65px) scale(1.4) rotate(14deg);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .is-open .stamp {
+    animation: stamp-kiss 0.55s ease both;
+  }
+  @keyframes stamp-kiss {
+    0% {
+      transform: rotate(7deg) scale(1);
+    }
+    45% {
+      transform: rotate(-8deg) scale(1.12);
+    }
+    100% {
+      transform: rotate(7deg) scale(1);
+    }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .heart-petal,
+  .sent-heart-spark {
+    display: none;
+  }
+  .invitation {
+    transition: none;
+  }
+}
+@media (max-width: 600px) {
+  .activity-toast {
+    right: 16px;
+    bottom: 90px;
+    padding: 16px 10px 16px 16px;
+  }
+  .mailbox-inbox {
+    padding: 16px;
+  }
+  .mailbox-inbox .section-heading {
+    align-items: flex-start;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .inbox-item {
+    padding: 12px;
+    gap: 10px;
+  }
+  .inbox-total {
+    display: block;
+    margin: 5px 0 0;
+  }
+  .postcard-ribbon {
+    margin: -23px -23px 20px;
+  }
+}
+.reply-note textarea {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 11px 12px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.reply-note textarea::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
