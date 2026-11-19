@@ -2,9 +2,39 @@
 
 A shared planner for two people living together. Everyday routines, meals and groceries sit alongside date invitations, weekend plans and trips.
 
-**[Explore the live demo ↗](https://our-space-demo-pink.vercel.app/)**
+**[Explore the demo ↗](https://our-space-demo-pink.vercel.app/)** · **[Open the actual app ↗](https://our-space-swart.vercel.app/)**
 
 The demo follows Alex and Sam, a fictional couple. No account is needed. Switch between both people to try invitations, replies, hearts and shared planning. Demo changes stay in your browser; it does not connect to the personal app’s database or send emails.
+
+## Live app and account limits
+
+The actual app requires an account and email confirmation. Each shared space supports **two people**: create your own space or join your partner’s through an invitation link. Registering does not grant access to other households.
+
+This is a personal project hosted on free service plans. Signup emails and reminders are subject to provider quotas and rate limits, so delivery may be delayed or temporarily unavailable. For a quick look without registration, use the demo.
+
+## Screenshots
+
+All screenshots use fictional demo data.
+
+### Shared calendar and date invitations
+
+![Desktop home with a shared calendar, tasks and a cherry date invitation](assets/screenshots/home-desktop.webp)
+
+<details>
+<summary>Mailbox and heart messages</summary>
+
+![Mailbox showing a date acceptance, a reply note and a received heart](assets/screenshots/mailbox-desktop.webp)
+
+![An opened heart message with a replayable animation](assets/screenshots/heart-letter.webp)
+
+</details>
+
+<details>
+<summary>Mobile night mode</summary>
+
+<img src="assets/screenshots/home-mobile-night.webp" alt="Our Space on mobile in night mode, showing the calendar and shared tasks" width="320" />
+
+</details>
 
 ## The idea
 
