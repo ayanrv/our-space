@@ -18,7 +18,7 @@ Deno.serve(async (request: Request) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     { auth: { persistSession: false } },
   );
-  const { data: jobs, error } = await db.rpc("claim_reminders");
+  const { data: jobs, error } = await db.rpc("claim_daily_agenda");
   if (error) {
     console.error("Reminder claim failed", error.code);
     return new Response("Claim failed", { status: 500 });
@@ -57,15 +57,14 @@ Deno.serve(async (request: Request) => {
       await finish("cancelled");
       continue;
     }
-    if (!job.plan_count && !job.task_count) {
-      await finish("cancelled", "Nothing to remind about");
+    if (!job.agenda) {
+      await finish(
+        "failed",
+        "Daily agenda payload missing; check migration 006",
+      );
       continue;
     }
-    const plans = Number(job.plan_count);
-    const tasks = Number(job.task_count);
-    const summary = `${plans} plan${plans === 1 ? "" : "s"} today or tomorrow, and ${tasks} task${tasks === 1 ? "" : "s"} due or overdue.`;
-    // Counts only: titles, private notes, invitations and hidden surprises never enter email.
-    const html = `<html><body style="margin:0;background:#f5f5f7;font-family:Arial,sans-serif;color:#382f32;padding:32px"><div style="max-width:480px;margin:auto;background:white;border-radius:20px;padding:32px;border-top:6px solid #b93854"><p style="color:#b93854">OUR SPACE</p><h1 style="font-size:26px">A little room for today.</h1><p>${summary}</p><p>Take a moment to see what’s coming up together.</p><p style="margin:28px 0"><a href="${site}" style="background:#b93854;color:white;padding:12px 20px;border-radius:8px;text-decoration:none">Open our space</a></p><p style="font-size:12px;color:#706369">You enabled daily reminders. Turn them off any time in <a href="${site.replace(/\/$/, "")}/settings">Settings → Email reminders</a>.</p></div></body></html>`;
+    const { html, text } = renderAgenda(job.agenda, job.local_day, site);
     try {
       const result = await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
@@ -75,7 +74,7 @@ Deno.serve(async (request: Request) => {
           to: [{ email: job.email }],
           subject: "A little look at your day ♡",
           htmlContent: html,
-          textContent: `${summary}\nOpen your space: ${site}\nDisable reminders in Settings.`,
+          textContent: text,
           tags: ["daily-reminder"],
         }),
         signal: AbortSignal.timeout(15000),
@@ -105,3 +104,92 @@ Deno.serve(async (request: Request) => {
   }
   return Response.json({ processed: jobs?.length || 0, sent });
 });
+
+type AgendaItem = {
+  title: string;
+  due_date?: string | null;
+  at_time?: string | null;
+  kind?: string;
+};
+type AgendaSection = { total: number; items: AgendaItem[] };
+type Agenda = {
+  timezone: string;
+  chores: AgendaSection;
+  today: AgendaSection;
+  tomorrow: AgendaSection;
+};
+function escapeHtml(value: string) {
+  const entities: Record<string, string> = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  };
+  return value.replace(/[&<>"']/g, (c) => entities[c]);
+}
+
+function renderAgenda(agenda: Agenda, day: string, site: string) {
+  const origin = site.replace(/\/$/, "");
+  function dateLabel(value: string) {
+    return new Intl.DateTimeFormat("en-GB", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      timeZone: "UTC",
+    }).format(new Date(value + "T12:00:00Z"));
+  }
+  const next = new Date(day + "T12:00:00Z");
+  next.setUTCDate(next.getUTCDate() + 1);
+  const tomorrow = next.toISOString().slice(0, 10);
+  const sections = [
+    {
+      heading: `Unfinished chores (${agenda.chores.total})`,
+      data: agenda.chores,
+      empty: "All caught up — no unfinished chores.",
+      task: true,
+    },
+    {
+      heading: `Today · ${dateLabel(day)}`,
+      data: agenda.today,
+      empty: "Nothing planned for today.",
+      task: false,
+    },
+    {
+      heading: `Tomorrow · ${dateLabel(tomorrow)}`,
+      data: agenda.tomorrow,
+      empty: "Nothing planned for tomorrow.",
+      task: false,
+    },
+  ];
+  const labels = (item: AgendaItem, task: boolean) =>
+    task
+      ? item.title +
+        (item.due_date
+          ? ` — ${item.due_date < day ? "Overdue · " : item.due_date === day ? "Due today · " : "Due "}${dateLabel(item.due_date)}`
+          : "")
+      : `${item.at_time || (item.kind === "trip" ? "Trip" : "All day")} · ${item.title}`;
+  const parts = sections.map((s) => {
+    const lines = s.data.items.map((item) => labels(item, s.task));
+    const extra = Math.max(0, Number(s.data.total) - lines.length);
+    const more = extra ? `+ ${extra} more in the app.` : "";
+    return {
+      html:
+        `<h2 style="font-size:18px;margin:28px 0 10px;color:#382f32">${escapeHtml(s.heading)}</h2>` +
+        (lines.length
+          ? `<ul style="padding-left:20px;margin:0">${lines.map((line) => `<li style="margin:10px 0;line-height:1.6;overflow-wrap:anywhere;word-break:break-word">${escapeHtml(line)}</li>`).join("")}</ul>`
+          : `<p style="color:#706369">${s.empty}</p>`) +
+        (more ? `<p>${more}</p>` : ""),
+      text:
+        s.heading +
+        "\n" +
+        (lines.length ? lines.map((line) => "• " + line).join("\n") : s.empty) +
+        (more ? "\n" + more : ""),
+    };
+  });
+  const html = `<!doctype html><html><body style="margin:0;background:#f5f5f7;font-family:Arial,sans-serif;color:#382f32;padding:24px"><div style="max-width:540px;margin:auto;background:white;border-radius:20px;padding:28px;border-top:6px solid #b93854"><p style="color:#b93854;font-size:12px;letter-spacing:2px">OUR SPACE</p><h1 style="font-size:27px">A little room for today.</h1><p style="color:#706369">Your everyday things and something to look forward to.</p><p style="font-size:12px;color:#706369">Times shown in ${escapeHtml(agenda.timezone)}.</p>${parts.map((p) => p.html).join("")}<p style="margin:30px 0"><a href="${escapeHtml(origin)}" style="display:inline-block;background:#b93854;color:white;padding:12px 20px;border-radius:8px;text-decoration:none">Open our space</a></p><p style="font-size:12px;line-height:1.6;color:#706369">A daily snapshot, including quiet days. Changes made later will appear in the app. Surprise details and your partner’s private tasks stay private.<br/>You enabled daily reminders. <a href="${escapeHtml(origin)}/settings">Manage email reminders</a>.</p></div></body></html>`;
+  return {
+    html,
+    text: `Our Space — ${dateLabel(day)}\nTimes shown in ${agenda.timezone}.\n\n${parts.map((p) => p.text).join("\n\n")}\n\nOpen your space: ${origin}\nManage email reminders: ${origin}/settings`,
+  };
+}

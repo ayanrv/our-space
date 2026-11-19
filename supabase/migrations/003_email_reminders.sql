@@ -56,7 +56,7 @@ begin
  update public.reminder_deliveries d set status='sending',attempts=attempts+1,claimed_at=now()
  from candidates c where d.id=c.id returning d.*
  )
- select c.id,c.user_id,u.email,c.local_day,
+ select c.id,c.user_id,u.email::text,c.local_day,
  (select count(*) from public.events e join public.memberships m on m.space_id=e.space_id
  where m.user_id=c.user_id and e.day between c.local_day and c.local_day+1 and e.kind<>'busy')+
  (select count(*) from public.trips t join public.memberships m on m.space_id=t.space_id where m.user_id=c.user_id and t.start_day<=c.local_day+1 and t.end_day>=c.local_day),

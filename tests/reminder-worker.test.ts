@@ -8,6 +8,7 @@ async function worker({
   provider = 201,
   throws = false,
   authorized = true,
+  empty = false,
 } = {}) {
   const jobs = job
     ? [
@@ -18,6 +19,39 @@ async function worker({
           local_day: "2026-10-09",
           plan_count: 2,
           task_count: 1,
+          agenda: {
+            timezone: "Europe/Paris",
+            chores: {
+              total: empty ? 0 : 1,
+              items: empty
+                ? []
+                : [{ title: "Wash <plates> & cups", due_date: "2026-10-08" }],
+            },
+            today: {
+              total: empty ? 0 : 1,
+              items: empty
+                ? []
+                : [
+                    {
+                      title: "Dinner together",
+                      at_time: "19:00",
+                      kind: "date",
+                    },
+                  ],
+            },
+            tomorrow: {
+              total: empty ? 0 : 1,
+              items: empty
+                ? []
+                : [
+                    {
+                      title: "A surprise for you",
+                      at_time: null,
+                      kind: "date",
+                    },
+                  ],
+            },
+          },
         },
       ]
     : [];
@@ -101,16 +135,21 @@ it("rechecks opt-out and does not deliver after it is disabled", async () => {
   expect(r.send).not.toHaveBeenCalled();
   expect(r.updates[0].status).toBe("cancelled");
 });
-it("sends only counts, a site link and opt-out instructions", async () => {
+it("sends escaped chore titles, dated plans, timezone and opt-out instructions", async () => {
   const r = await worker();
   expect(r.send).toHaveBeenCalledTimes(1);
   const body = JSON.parse(
     (r.send.mock.calls[0] as unknown as [string, RequestInit])[1]
       .body as string,
   );
-  expect(body.htmlContent).toContain(
-    "2 plans today or tomorrow, and 1 task due or overdue.",
-  );
+  expect(body.htmlContent).toContain("Wash &lt;plates&gt; &amp; cups");
+  expect(body.htmlContent).not.toContain("Wash <plates>");
+  expect(body.htmlContent).toContain("Overdue");
+  expect(body.htmlContent).toContain("19:00 · Dinner together");
+  expect(body.htmlContent).toContain("A surprise for you");
+  expect(body.htmlContent).toContain("Europe/Paris");
+  expect(body.textContent).toContain("Wash <plates> & cups");
+  expect(r.rpc).toHaveBeenCalledWith("claim_daily_agenda");
   expect(body.htmlContent).toContain("/settings");
   expect(body).not.toHaveProperty("event_secrets");
   expect(r.updates[0].status).toBe("sent");
@@ -123,4 +162,22 @@ it("holds uncertain network outcomes instead of automatically sending twice", as
 it("retries rate limits but records definite provider rejection", async () => {
   expect((await worker({ provider: 429 })).updates[0].status).toBe("pending");
   expect((await worker({ provider: 401 })).updates[0].status).toBe("failed");
+});
+
+it("sends quiet-day summaries with explicit empty sections", async () => {
+  const r = await worker({ empty: true });
+  expect(r.send).toHaveBeenCalledTimes(1);
+  const body = JSON.parse(
+    (r.send.mock.calls[0] as unknown as [string, RequestInit])[1]
+      .body as string,
+  );
+  for (const value of [
+    "All caught up — no unfinished chores.",
+    "Nothing planned for today.",
+    "Nothing planned for tomorrow.",
+  ]) {
+    expect(body.htmlContent).toContain(value);
+    expect(body.textContent).toContain(value);
+  }
+  expect(r.updates[0].status).toBe("sent");
 });
